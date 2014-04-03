@@ -163,14 +163,13 @@ scaleR2 = Scale "√ (even # digits)" Bottom
 scaleS = Scale "S" Slide
          [ SRMark v (srOffset (sin (radians v))) (markT v) (label v) |
            v <- map (roundTo srPrec) $ L.sort (
-                       [asin_1, 5.74 ]         ++ [5.75, 5.80 ..  9.95]
+                       [degrees (asin 0.1), 5.74 ]         ++ [5.75, 5.80 ..  9.95]
                        ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
                        ++ [30,  30.5 .. 59.49] ++ [60 .. 79] ++ [80, 85, 90]
                        )
          ]
-         "Sine and Cosine for angles between 5.7 and 90 degrees. To find sin x, look for Sx on the S scale and read sin x from the C scale (or D if S is on the stator). To find cos x, look for Cx on the S scale and read cos x from the C (D) scale."
+         "Sine and Cosine for angles between ~6 and 90˚. To find sin x, look for Sx on the S scale and read sin x from the C scale (or D if S is on the stator). To find cos x, look for Cx on the S scale and read cos x from the C (D) scale."
          where
-           asin_1  = degrees $ asin 0.1
            markT v | v <=10 = if isWhole v then Major
                               else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Major
                               else if decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 then Minor
@@ -190,6 +189,24 @@ scaleS = Scale "S" Slide
                    | truncate v == 90 = "S90"
                    | otherwise     = ""
                    where complement = 90 - round v
+
+scaleST = Scale "ST" Slide
+          [ SRMark v (srOffset . sin . radians $ v) (markT v) (label v) |
+            v <- map (roundTo srPrec) $ L.sort (
+                [degrees (asin 0.01), 0.58, 0.59] ++ [0.6, 0.62 .. 0.88] ++ [ 1, 1.02 .. 10 * (degrees (asin 0.01)) ]
+                )
+          ]
+          "Sine for angles less than ~6˚ and cosine for angles close to 90˚. To find sin x, look for x on the ST scale and divide the C scale value by 100 (or D if ST is on the stator). Thus sin 1˚ = 1.745 / 100 = 0.01745."
+          where
+            markT v | v < 1 && decimalDigit 2 v == 0                 = Major
+                    | isWhole v                                      = Major
+                    | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
+                    | decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Minor
+                    | otherwise                                      = Tick
+            label v | v < 1 && decimalDigit 2 v == 0                 = "0." ++ show (truncate (v * 10))
+                    | v < 3 && decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = show (truncateTo 1 v)
+                    | isWhole v = show (truncate v)
+                    | otherwise = ""
 
 {--
 scaleA :: Float -> Float
