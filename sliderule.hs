@@ -172,7 +172,13 @@ scaleS = Scale "S" Slide
                               else if decimalDigit 0 v == 5 then Minor
                               else Tick
                    | otherwise = Tick
-           label v = ""
+           label v | v < 10.01 && isWhole v = "C"  ++ show complement
+                                           ++ " S" ++ show (round v)
+                   | isWhole v && truncate v `elem` [ 15,20,25] ++ [30,40..80] = "C" ++ show complement
+                                           ++ " S" ++ show (round v)
+                   | truncate v == 90 = "S90"
+                   | otherwise     = ""
+                   where complement = 90 - round v
 
 {--
 scaleA :: Float -> Float
