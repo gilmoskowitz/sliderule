@@ -6,6 +6,7 @@ import qualified Data.List  as L
 import qualified Numeric    as N
 
 srPrec   =  3
+srEps    = 10 ** (-srPrec)
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -68,18 +69,23 @@ roundTo prec number = fromIntegral (round (number * 10 ** prec)) * 10 ** (-prec)
 truncateTo :: (RealFrac a, Floating a) => a -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ** prec)) * 10 ** (-prec)
 
+isWhole :: Float -> Bool
+isWhole v = v - fromIntegral (truncate v) < srEps
+
 e = exp 1
 
 decimalDigit :: RealFloat b => Int -> b -> Int
-decimalDigit i x = if i < length fracPart then fracPart !! i
-                   else 0
-                   where parts = N.floatToDigits 10 x
-                         fracPart = 0 : (drop (snd parts) (fst parts))
+decimalDigit i x | (-i) >= length intPart = 0
+                 | i <= 0                = intPart  !! (length intPart + i - 1)
+                 | i <= length fracPart  = fracPart !! (i - 1)
+                 | otherwise             = 0
+                 where parts = N.floatToDigits 10 x
+                       (intPart, fracPart) = splitAt (snd parts) (fst parts)
 {-- this doesn't work because of internal rounding
 decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ** i)
 --}
 
-tickC v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = Major
+tickC v | isWhole v                               = Major
         | v < 4 && decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Major
         | v < 4                 && decimalDigit 2 v == 5 = Minor
         | decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Minor
@@ -106,45 +112,67 @@ scaleD  = Scale "D"  Bottom (marks scaleC)
 scaleDI = Scale "DI" Bottom (marks scaleCI)
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
-            [ SRMark v (srOffset (v ** 2)) (markT v) (label v) |
-              v <- map (roundTo srPrec) $ L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
-            ] where
-              markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
-                     && decimalDigit 3 v == 0                          = Major
-                      | v < 2                 && decimalDigit 2 v `elem` [0,5]
-                     && decimalDigit 3 v == 0                          = Major
-                      | v < 2                 && decimalDigit 3 v == 0 = Minor
-                      | decimalDigit 2 v `elem` [0, 5]
-                     && decimalDigit 3 v == 0                          = Minor
-                      | otherwise                                      = Tick
-              label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
-                     && decimalDigit 3 v == 0                          = (show $ truncate v)
-                      | decimalDigit 2 v == 0 && decimalDigit 3 v == 0 = show $ decimalDigit 1 v
-                      | otherwise = ""
+          [ SRMark v (srOffset (v ** 2)) (markT v) (label v) |
+            v <- map (roundTo srPrec) $ L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
+          ] where
+          markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
+                 && decimalDigit 3 v == 0                          = Major
+                  | v < 2                 && decimalDigit 2 v `elem` [0,5]
+                 && decimalDigit 3 v == 0                          = Major
+                  | v < 2                 && decimalDigit 3 v == 0 = Minor
+                  | decimalDigit 2 v `elem` [0, 5]
+                 && decimalDigit 3 v == 0                          = Minor
+                  | otherwise                                      = Tick
+          label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
+                 && decimalDigit 3 v == 0                          = (show $ truncate v)
+                  | decimalDigit 2 v == 0 && decimalDigit 3 v == 0 = show $ decimalDigit 1 v
+                  | otherwise = ""
 
 scaleR2 = Scale "√ (even # digits)" Bottom
-            [ SRMark v (srOffset (v ** 2) - 1) (markT v) (label v) |
-              v <- map (roundTo srPrec) $ L.sort (sqrt10 : [ truncateTo 2 sqrt10, truncateTo 2 sqrt10 + 0.01 .. 4.99] ++ [5.0, 5.02 .. 10])
-            ] where
-              sqrt10 = sqrt 10
-              markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = Major
-                      | v < 5 && decimalDigit 2 v == 0                 = Major
-                      | v < 5 && decimalDigit 2 v == 5                 = Minor
-                      | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
-                      | decimalDigit 2 v == 0                          = Minor
-                      | v == roundTo srPrec sqrt10                     = Offset
-                      | otherwise                                      = Tick
-              label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = (show $ truncate v)
-                      | v < 5 && decimalDigit 2 v == 0                 = show $ decimalDigit 1 v
-                      | v == roundTo srPrec sqrt10                     = "√10"
-                      | otherwise                                      = ""
+          [ SRMark v (srOffset (v ** 2) - 1) (markT v) (label v) |
+            v <- map (roundTo srPrec) $ L.sort (sqrt10 : [ truncateTo 2 sqrt10, truncateTo 2 sqrt10 + 0.01 .. 4.99] ++ [5.0, 5.02 .. 10])
+          ] where
+            sqrt10 = sqrt 10
+            markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = Major
+                    | v < 5 && decimalDigit 2 v == 0                 = Major
+                    | v < 5 && decimalDigit 2 v == 5                 = Minor
+                    | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
+                    | decimalDigit 2 v == 0                          = Minor
+                    | v == roundTo srPrec sqrt10                     = Offset
+                    | otherwise                                      = Tick
+            label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = (show $ truncate v)
+                    | v < 5 && decimalDigit 2 v == 0                 = show $ decimalDigit 1 v
+                    | v == roundTo srPrec sqrt10                     = "√10"
+                    | otherwise                                      = ""
 
-{--
+degrees :: Floating a => a -> a
+degrees r = r * 180 / pi
+
+radians :: Floating a => a -> a
+radians d = d * pi / 180
 
 scaleS = Scale "S" Slide
-         [ SRMark v (srOffset $ asin v) (markT v) (label v) |
-             v <- L.sort ([ degrees asin 0.1 .. 9.999 ] ++
---}
+         [ SRMark v (srOffset (sin (radians v))) (markT v) (label v) |
+           v <- map (roundTo srPrec) $ L.sort (
+                       [asin_1, 5.74 ]         ++ [5.75, 5.80 ..  9.95]
+                       ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
+                       ++ [30,  30.5 .. 59.49] ++ [60 .. 79] ++ [80, 85, 90]
+                       )
+         ] where
+           asin_1  = degrees $ asin 0.1
+           markT v | v <=10 = if isWhole v then Major
+                              else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Major
+                              else if decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 then Minor
+                              else Tick
+                   | v <=20 = if isWhole v then Major
+                              else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Minor
+                              else Tick
+                   | v < 60 = if isWhole v then Minor else Tick
+                   | v <= 90.1 = if isWhole (v / 10) then Major
+                              else if decimalDigit 0 v == 5 then Minor
+                              else Tick
+                   | otherwise = Tick
+           label v = ""
 
 {--
 scaleA :: Float -> Float
