@@ -7,6 +7,7 @@ import qualified Numeric    as N
 
 srPrec   =  3
 srEps    = 10 ** (-srPrec)
+e        = exp 1
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -22,7 +23,8 @@ data SRMark = SRMark {
 data Scale = Scale {
   name  :: String,
   loc   :: Location,
-  marks :: [SRMark]
+  marks :: [SRMark],
+  desc  :: String
 }
 
 instance Ord SRMark where
@@ -72,7 +74,11 @@ truncateTo prec number = fromIntegral (truncate (number * 10 ** prec)) * 10 ** (
 isWhole :: Float -> Bool
 isWhole v = v - fromIntegral (truncate v) < srEps
 
-e = exp 1
+degrees :: Floating a => a -> a
+degrees r = r * 180 / pi
+
+radians :: Floating a => a -> a
+radians d = d * pi / 180
 
 decimalDigit :: RealFloat b => Int -> b -> Int
 decimalDigit i x | (-i) >= length intPart = 0
@@ -102,19 +108,26 @@ scaleC = Scale "C" Slide
          [ SRMark v (srOffset v) (tickC v) (labelC v) |
            v <- map (roundTo srPrec) $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
          ]
+         "Baseline scale on the slide, running from 1 to 10."
 
 scaleCI = Scale "CI" Slide
           [ SRMark v (1 + (srOffset $ 1/v)) (tickC v) (labelC v) |
             v <- reverse $ map (roundTo srPrec) $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
           ]
+          "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
 
 scaleD  = Scale "D"  Bottom (marks scaleC)
+          "Baseline scale on the stator. To multiply, place 1 on the C scale above the multiplicand on the D scale, look for the multiplier on the C scale, and read the result from the D scale."
+
 scaleDI = Scale "DI" Bottom (marks scaleCI)
+          "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ** 2)) (markT v) (label v) |
             v <- map (roundTo srPrec) $ L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
-          ] where
+          ]
+          "Square roots for values with an odd number of digits. To find √x, look for x on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
+          where
           markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
                  && decimalDigit 3 v == 0                          = Major
                   | v < 2                 && decimalDigit 2 v `elem` [0,5]
@@ -131,7 +144,9 @@ scaleR1 = Scale "√ (odd # digits)" Bottom
 scaleR2 = Scale "√ (even # digits)" Bottom
           [ SRMark v (srOffset (v ** 2) - 1) (markT v) (label v) |
             v <- map (roundTo srPrec) $ L.sort (sqrt10 : [ truncateTo 2 sqrt10, truncateTo 2 sqrt10 + 0.01 .. 4.99] ++ [5.0, 5.02 .. 10])
-          ] where
+          ]
+          "Square roots for values with an even number of digits. To find √x, look for x/10 on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
+          where
             sqrt10 = sqrt 10
             markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = Major
                     | v < 5 && decimalDigit 2 v == 0                 = Major
@@ -145,12 +160,6 @@ scaleR2 = Scale "√ (even # digits)" Bottom
                     | v == roundTo srPrec sqrt10                     = "√10"
                     | otherwise                                      = ""
 
-degrees :: Floating a => a -> a
-degrees r = r * 180 / pi
-
-radians :: Floating a => a -> a
-radians d = d * pi / 180
-
 scaleS = Scale "S" Slide
          [ SRMark v (srOffset (sin (radians v))) (markT v) (label v) |
            v <- map (roundTo srPrec) $ L.sort (
@@ -158,7 +167,9 @@ scaleS = Scale "S" Slide
                        ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
                        ++ [30,  30.5 .. 59.49] ++ [60 .. 79] ++ [80, 85, 90]
                        )
-         ] where
+         ]
+         "Sine and Cosine for angles between 5.7 and 90 degrees. To find sin x, look for Sx on the S scale and read sin x from the C scale (or D if S is on the stator). To find cos x, look for Cx on the S scale and read cos x from the C (D) scale."
+         where
            asin_1  = degrees $ asin 0.1
            markT v | v <=10 = if isWhole v then Major
                               else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Major
