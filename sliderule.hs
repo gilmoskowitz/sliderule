@@ -5,9 +5,11 @@ import Data.Ratio
 import qualified Data.List  as L
 import qualified Numeric    as N
 
-srPrec   =  3
-srEps    = 10 ** (-srPrec)
 e        = exp 1
+srPrec   =  3
+
+srEps :: Float
+srEps    = 10 ** (-srPrec)
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -38,7 +40,7 @@ instance Show SRMark where
                         where indent m l | m == Major  = "--- " ++ l
                                          | m == Minor  = "--  " ++ l
                                          | m == Tick   = "-   " ++ l
-                                         | m == Offset = "\t"   ++ l
+                                         | m == Offset = "   <" ++ l
                                          | otherwise   = "    " ++ l
 
 srOffset :: Float -> Float
@@ -72,7 +74,13 @@ truncateTo :: (RealFrac a, Floating a) => a -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ** prec)) * 10 ** (-prec)
 
 isWhole :: Float -> Bool
-isWhole v = v - fromIntegral (truncate v) < srEps
+isWhole v = abs (v - fromIntegral (round v)) < srEps
+
+isTenth :: Float -> Bool
+isTenth x = isWhole (x * 10)
+
+isHalf :: Float -> Bool
+isHalf x = isWhole (x * 2)
 
 degrees :: Floating a => a -> a
 degrees r = r * 180 / pi
@@ -91,22 +99,22 @@ decimalDigit i x | (-i) >= length intPart = 0
 decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ** i)
 --}
 
-tickC v | isWhole v                               = Major
-        | v < 4 && decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Major
-        | v < 4                 && decimalDigit 2 v == 5 = Minor
-        | decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Minor
+tickC v | isWhole v                                      = Major
+        | v < 4 && isTenth v                             = Major
+        | v < 4 && isHalf (v * 10)                       = Minor
+        | v >= 4 && isTenth v                            = Minor
         | v `elem` [ pi, e ]                             = Offset
         | otherwise                                      = Tick
 
-labelC v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = show (truncate v)
-         | v < 2 && decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = show $ decimalDigit 1 v
-         | v == pi         = "π"
-         | v == e          = "e"
-         | otherwise       = "\t"
+labelC v | isWhole v          = show (round v)
+         | v < 2 && isTenth v = show $ decimalDigit 1 (roundTo srPrec v)
+         | v == pi            = "π"
+         | v == e             = "e"
+         | otherwise          = "\t"
 
 scaleC = Scale "C" Slide
          [ SRMark v (srOffset v) (tickC v) (labelC v) |
-           v <- map (roundTo srPrec) $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+           v <- L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
          ]
          "Baseline scale on the slide, running from 1 to 10."
 
@@ -191,17 +199,19 @@ scaleS = Scale "S" Slide
                    where complement = 90 - round v
 
 scaleST = Scale "ST" Slide
-          [ SRMark v (srOffset . sin . radians $ v) (markT v) (label v) |
+          [ SRMark v ((srOffset . sin . radians) v - srOffset asin_01) (markT v) (label v) |
             v <- map (roundTo srPrec) $ L.sort (
-                [degrees (asin 0.01), 0.58, 0.59] ++ [0.6, 0.62 .. 0.88] ++ [ 1, 1.02 .. 10 * (degrees (asin 0.01)) ]
+                [degrees asin_01, 0.58, 0.59] ++ [0.6, 0.62 .. 0.88] ++ [ 1, 1.02 .. 10 * (degrees asin_01) ]
                 )
           ]
           "Sine for angles less than ~6˚ and cosine for angles close to 90˚. To find sin x, look for x on the ST scale and divide the C scale value by 100 (or D if ST is on the stator). Thus sin 1˚ = 1.745 / 100 = 0.01745."
           where
+            asin_01 = asin 0.01
             markT v | v < 1 && decimalDigit 2 v == 0                 = Major
                     | isWhole v                                      = Major
                     | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
                     | decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Minor
+                    | v == 0.573                                     = Offset
                     | otherwise                                      = Tick
             label v | v < 1 && decimalDigit 2 v == 0                 = "0." ++ show (truncate (v * 10))
                     | v < 3 && decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = show (truncateTo 1 v)
