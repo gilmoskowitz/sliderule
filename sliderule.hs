@@ -99,12 +99,12 @@ decimalDigit i x | (-i) >= length intPart = 0
 decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ** i)
 --}
 
-tickC v | isWhole v                                      = Major
-        | v < 4 && isTenth v                             = Major
-        | v < 4 && isHalf (v * 10)                       = Minor
-        | v >= 4 && isTenth v                            = Minor
-        | v `elem` [ pi, e ]                             = Offset
-        | otherwise                                      = Tick
+tickC v | isWhole v                     = Major
+        | v < 4 && isTenth v            = Major
+        | v < 4 && isHalf (v * 10)      = Minor
+        | v >= 4 && isTenth v           = Minor
+        | v `elem` [ pi, e ]            = Offset
+        | otherwise                     = Tick
 
 labelC v | isWhole v          = show (round v)
          | v < 2 && isTenth v = show $ decimalDigit 1 (roundTo srPrec v)
@@ -132,62 +132,58 @@ scaleDI = Scale "DI" Bottom (marks scaleCI)
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ** 2)) (markT v) (label v) |
-            v <- map (roundTo srPrec) $ L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
+            v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
           ]
           "Square roots for values with an odd number of digits. To find √x, look for x on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
           where
-          markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
-                 && decimalDigit 3 v == 0                          = Major
-                  | v < 2                 && decimalDigit 2 v `elem` [0,5]
-                 && decimalDigit 3 v == 0                          = Major
-                  | v < 2                 && decimalDigit 3 v == 0 = Minor
-                  | decimalDigit 2 v `elem` [0, 5]
-                 && decimalDigit 3 v == 0                          = Minor
-                  | otherwise                                      = Tick
-          label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0
-                 && decimalDigit 3 v == 0                          = (show $ truncate v)
-                  | decimalDigit 2 v == 0 && decimalDigit 3 v == 0 = show $ decimalDigit 1 v
-                  | otherwise = ""
+          markT v | isWhole v                   = Major
+                  | v < 2 && isHalf (10 * v)    = Major
+                  | v < 2 && isWhole (100 * v)  = Minor
+                  | isHalf (10 * v)             = Minor
+                  | otherwise                   = Tick
+          label v | isWhole v           = show $ (round v)
+                  | isWhole (10 * v)    = show $ decimalDigit 1 (roundTo srPrec v)
+                  | otherwise           = ""
 
 scaleR2 = Scale "√ (even # digits)" Bottom
           [ SRMark v (srOffset (v ** 2) - 1) (markT v) (label v) |
-            v <- map (roundTo srPrec) $ L.sort (sqrt10 : [ truncateTo 2 sqrt10, truncateTo 2 sqrt10 + 0.01 .. 4.99] ++ [5.0, 5.02 .. 10])
+            v <- L.sort (sqrt10 : [ truncateTo 2 sqrt10 + 0.01, truncateTo 2 sqrt10 + 0.02 .. 4.99] ++ [5.0, 5.02 .. 10])
           ]
           "Square roots for values with an even number of digits. To find √x, look for x/10 on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
           where
             sqrt10 = sqrt 10
-            markT v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = Major
-                    | v < 5 && decimalDigit 2 v == 0                 = Major
-                    | v < 5 && decimalDigit 2 v == 5                 = Minor
-                    | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
-                    | decimalDigit 2 v == 0                          = Minor
-                    | v == roundTo srPrec sqrt10                     = Offset
-                    | otherwise                                      = Tick
-            label v | decimalDigit 1 v == 0 && decimalDigit 2 v == 0 = (show $ truncate v)
-                    | v < 5 && decimalDigit 2 v == 0                 = show $ decimalDigit 1 v
-                    | v == roundTo srPrec sqrt10                     = "√10"
-                    | otherwise                                      = ""
+            markT v | isWhole v                 = Major
+                    | v < 5 && isWhole (v * 10) = Major
+                    | v < 5 && isHalf  (v * 10) = Minor
+                    | isHalf v                  = Major
+                    | isWhole (v * 10)          = Minor
+                    | v == sqrt10               = Offset
+                    | otherwise                 = Tick
+            label v | isWhole v                 = (show $ round v)
+                    | v < 5 && isWhole (v * 10) = show $ decimalDigit 1 (roundTo srPrec v)
+                    | v == sqrt10               = "√10"
+                    | otherwise                 = ""
 
 scaleS = Scale "S" Slide
-         [ SRMark v (srOffset (sin (radians v))) (markT v) (label v) |
-           v <- map (roundTo srPrec) $ L.sort (
-                       [degrees (asin 0.1), 5.74 ]         ++ [5.75, 5.80 ..  9.95]
+         [ SRMark v (1 + srOffset (sin (radians v))) (markT v) (label v) |
+           v <- L.sort (
+                       degrees (asin 0.1) : [5.75, 5.80 ..  9.95]
                        ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
                        ++ [30,  30.5 .. 59.49] ++ [60 .. 79] ++ [80, 85, 90]
                        )
          ]
          "Sine and Cosine for angles between ~6 and 90˚. To find sin x, look for Sx on the S scale and read sin x from the C scale (or D if S is on the stator). To find cos x, look for Cx on the S scale and read cos x from the C (D) scale."
          where
-           markT v | v <=10 = if isWhole v then Major
-                              else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Major
-                              else if decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 then Minor
+           markT v | v == degrees (asin 0.1) = Offset
+                   | v <=10 = if isHalf v then Major
+                              else if isWhole (v * 10) then Minor
                               else Tick
-                   | v <=20 = if isWhole v then Major
-                              else if decimalDigit 1 v == 5 && decimalDigit 2 v == 0 then Minor
+                   | v <=20 = if isWhole v     then Major
+                              else if isHalf v then Minor
                               else Tick
                    | v < 60 = if isWhole v then Minor else Tick
                    | v <= 90.1 = if isWhole (v / 10) then Major
-                              else if decimalDigit 0 v == 5 then Minor
+                              else if isHalf (v / 10) then Minor
                               else Tick
                    | otherwise = Tick
            label v | v < 10.01 && isWhole v = "C"  ++ show complement
@@ -195,28 +191,32 @@ scaleS = Scale "S" Slide
                    | isWhole v && truncate v `elem` [ 15,20,25] ++ [30,40..80] = "C" ++ show complement
                                            ++ " S" ++ show (round v)
                    | truncate v == 90 = "S90"
-                   | otherwise     = ""
+                   | otherwise        = ""
                    where complement = 90 - round v
 
+{-- TODO: Pickett marks scaleST with " at ~1.18˚ and ' at ~1.965˚. why?
+          are they really for 11.9˚ and 20.1˚ on scaleS???
+--}
 scaleST = Scale "ST" Slide
           [ SRMark v ((srOffset . sin . radians) v - srOffset asin_01) (markT v) (label v) |
-            v <- map (roundTo srPrec) $ L.sort (
-                [degrees asin_01, 0.58, 0.59] ++ [0.6, 0.62 .. 0.88] ++ [ 1, 1.02 .. 10 * (degrees asin_01) ]
+            v <- L.sort (
+                [degrees asin_01, 0.58, 0.59] ++ [0.6, 0.62 .. 0.98] ++ [ 1, 1.02 .. 10 * (degrees asin_01) ]
                 )
           ]
           "Sine for angles less than ~6˚ and cosine for angles close to 90˚. To find sin x, look for x on the ST scale and divide the C scale value by 100 (or D if ST is on the stator). Thus sin 1˚ = 1.745 / 100 = 0.01745."
           where
             asin_01 = asin 0.01
-            markT v | v < 1 && decimalDigit 2 v == 0                 = Major
-                    | isWhole v                                      = Major
-                    | decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = Major
-                    | decimalDigit 1 v /= 0 && decimalDigit 2 v == 0 = Minor
-                    | v == 0.573                                     = Offset
-                    | otherwise                                      = Tick
-            label v | v < 1 && decimalDigit 2 v == 0                 = "0." ++ show (truncate (v * 10))
-                    | v < 3 && decimalDigit 1 v == 5 && decimalDigit 2 v == 0 = show (truncateTo 1 v)
-                    | isWhole v = show (truncate v)
-                    | otherwise = ""
+            markT v | v < 1 && isWhole (v * 10) = Major
+                    | isWhole v                 = Major
+                    | isHalf v                  = Major
+                    | isWhole (v * 10)          = Minor
+                    | v == degrees asin_01      = Offset
+                    | otherwise                 = Tick
+            label v | v < 1 && isWhole (v * 10) = "0." ++ show (round (v * 10))
+                    | v == 1                    = "1˚"
+                    | v < 3 && isHalf v         = show (roundTo 1 v)
+                    | isWhole v                 = show (round v)
+                    | otherwise                 = ""
 
 {--
 scaleA :: Float -> Float
