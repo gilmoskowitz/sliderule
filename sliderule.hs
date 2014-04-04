@@ -46,27 +46,6 @@ instance Show SRMark where
 srOffset :: Float -> Float
 srOffset val = logBase 10 val
 
-arrayToFrac :: Fractional a => [a] -> a
-arrayToFrac [] = 0
-arrayToFrac [x] = x / 10
-arrayToFrac (x:xs) = x / 10 + arrayToFrac (map (/ 10) xs)
-
-arrayToInt :: Fractional a => [Int] -> a
-arrayToInt [] = 0
-arrayToInt [x] = fromIntegral x
-arrayToInt (x:xs) = fromIntegral x + arrayToInt (map (*10) xs)
-
-normalizeDigitsArray :: ([Int], Int) -> ([Int], Int)
-normalizeDigitsArray (digits, intLength)
-  | intLength < 0             = (0:digits, intLength + 1)
-  | intLength > length digits = (digits ++ (take (intLength - length digits) $ repeat 0), intLength)
-  | otherwise                 = (digits, intLength)
-
-digitsToFloat :: Fractional a => ([Int], Int) -> a
-digitsToFloat digitArray = (arrayToInt $ reverse $ fst parts) + (arrayToFrac $ map (fromIntegral) (snd parts))
-  where normalized = normalizeDigitsArray digitArray
-        parts = splitAt (snd normalized) $ fst normalized
-
 roundTo :: (RealFrac a, Floating a) => a -> a -> a
 roundTo prec number = fromIntegral (round (number * 10 ** prec)) * 10 ** (-prec)
 
