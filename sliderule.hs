@@ -197,6 +197,31 @@ scaleST = Scale "ST" Slide
                     | isWhole v                 = show (round v)
                     | otherwise                 = ""
 
+scaleCF = Scale "CF" Slide
+          [ SRMark v (srOffset (v / pi)) (markT v) (label v) |
+            v <- L.sort (
+                   [ pi, 10 * pi ]
+                   ++ [  3.16, 3.18 .. 3.98 ] ++ [ 4,  4.05 ..  9.95 ]
+                   ++ [ 10,   10.1 .. 19.9  ] ++ [20, 20.2  .. 31.2  ]
+                 )
+          ]
+          "π to 10π. To find πx, find x on the C (or D) scale and read πx from the CF (or DF) scale."
+          where
+            markT v | v < 10 && isHalf  v       = Major
+                    | v < 10 && isTenth v       = Minor
+                    | isWhole (v / pi)          = Offset
+                    | isWhole v                 = Major
+                    | isHalf  v                 = Minor
+                    | otherwise                 = Tick
+            label v | v < 11 && isWhole v       = show $ round v
+                    | isWhole (v / pi)          = show (round $ v / pi) ++ "π"
+                    | v < 20 && isWhole v       = show $ decimalDigit 0 (roundTo 0 v)
+                    | isWhole (v / 10)          = show $ round (v / 10)
+                    | otherwise                 = ""
+
+scaleDF = Scale "DF" Slide (marks scaleCF)
+          "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
+
 {--
 scaleA :: Float -> Float
 scaleA x = x ** 2
