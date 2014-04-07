@@ -1,5 +1,5 @@
-{-- Copyright © Gil Moskowitz 2014
---}
+{- Copyright © Gil Moskowitz 2014
+-}
 
 import Data.Ratio
 import qualified Data.List  as L
@@ -8,7 +8,7 @@ import qualified Numeric    as N
 e        = exp 1
 srPrec   =  3
 
-srEps :: Float
+srEps :: Double
 srEps    = 10 ^^ (-srPrec)
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
@@ -16,8 +16,8 @@ data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 data Location = Top | Slide | Bottom   deriving (Eq, Enum, Ord, Show)
 
 data SRMark = SRMark {
-  value    :: Float,
-  distance :: Float,
+  value    :: Double,
+  distance :: Double,
   mark     :: MarkType,
   label    :: String
 } deriving (Eq)
@@ -27,13 +27,10 @@ data Scale = Scale {
   loc   :: Location,
   marks :: [SRMark],
   desc  :: String
-}
+} deriving (Show)
 
 instance Ord SRMark where
   SRMark _ d _ _ <= SRMark _ e _ _ = d <= e
-
-instance Show Scale where
-  show x = (name x) ++ " (" ++ (show $ loc x) ++ "):\n" ++ (show $ marks x)
 
 instance Show SRMark where
   show x = "\n" ++ indent (mark x) (label x) ++ "\t" ++ (show $ value x) ++ " (" ++ (show $ distance x) ++ ")"
@@ -43,7 +40,7 @@ instance Show SRMark where
                                          | m == Offset = "   <" ++ l
                                          | otherwise   = "    " ++ l
 
-srOffset :: Float -> Float
+srOffset :: Double -> Double
 srOffset val = logBase 10 val
 
 roundTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
@@ -52,13 +49,13 @@ roundTo prec number = fromIntegral (round (number * 10 ^^ prec)) * 10 ^^ (-prec)
 truncateTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
-isWhole :: Float -> Bool
+isWhole :: Double -> Bool
 isWhole v = abs (v - fromIntegral (round v)) < srEps
 
-isTenth :: Float -> Bool
+isTenth :: Double -> Bool
 isTenth x = isWhole (x * 10)
 
-isHalf :: Float -> Bool
+isHalf :: Double -> Bool
 isHalf x = isWhole (x * 2)
 
 degrees :: Floating a => a -> a
@@ -132,10 +129,10 @@ scaleR2 = Scale "√ (even # digits)" Bottom
           where
             sqrt10 = sqrt 10
             markT v | isWhole v                 = Major
-                    | v < 5 && isWhole (v * 10) = Major
+                    | v < 5 && isTenth v        = Major
                     | v < 5 && isHalf  (v * 10) = Minor
                     | isHalf v                  = Major
-                    | isWhole (v * 10)          = Minor
+                    | isTenth v                 = Minor
                     | v == sqrt10               = Offset
                     | otherwise                 = Tick
             label v | isWhole v                 = (show $ round v)
@@ -144,7 +141,7 @@ scaleR2 = Scale "√ (even # digits)" Bottom
                     | otherwise                 = ""
 
 scaleS = Scale "S" Slide
-         [ SRMark v (1 + srOffset (sin (radians v))) (markT v) (label v) |
+         [ SRMark v (1 + (srOffset . sin . radians $ v)) (markT v) (label v) |
            v <- L.sort (
                        degrees (asin 0.1) : [5.75, 5.80 ..  9.95]
                        ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
@@ -222,22 +219,47 @@ scaleCF = Scale "CF" Slide
 scaleDF = Scale "DF" Slide (marks scaleCF)
           "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
 
+scaleT1 = Scale "T1" Slide
+         [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
+           v <- L.sort ( (degrees . atan $ 0.1) : [5.75, 5.80 .. 9.95 ]
+                       ++ [10, 10.1  .. 29.9] ++ [30, 30.2 .. 45 ]
+                       )
+         ]
+         "Tangent for angles between ~5.7˚ and 45˚. Find the angle x on T1, then tan x = C / 10."
+         where
+           markT v | isWhole v && v < 30 = Major
+                   | isHalf  v && v < 10 = Major
+                   | isTenth v && v < 10 = Minor
+                   | isHalf  v && v < 30 = Minor
+                   | isHalf (v / 10)     = Major
+                   | isWhole v           = Minor
+                   | otherwise           = Tick
+           label v | isHalf (v / 10)     = show $ round v
+                   | isWhole v && v < 10 = show $ round v
+                   | otherwise           = ""
+
+scaleT2 = Scale "T2" Slide
+         [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
+           v <- L.sort ( [45, 45.2  .. 58.8] ++ [60, 60.1 .. 79.9]
+                       ++ [80, 80.05 .. 84.3]
+                       )
+         ]
+         "Tangent for angles between 45˚ and 84.3˚. Find the angle x on T2 and read tan x from C."
+         where
+           markT v | isHalf (v / 10)  = Major
+                   | isWhole v && v > 60 = Major
+                   | isHalf  v && v > 60 = Minor
+                   | isTenth v && v > 80 = Minor
+                   | isWhole v        = Minor
+                   | otherwise        = Tick
+           label v | isHalf (v / 10)     = show $ round v
+                   | isWhole v && v > 80 = show $ round v
+                   | otherwise           = ""
+
 {--
-scaleA :: Float -> Float
 scaleA x = x ^^ 2
-
-scaleB :: Float -> Float
 scaleB x = x ^^ 2
-
-scaleK :: Float -> Float
 scaleK x = x ^^ 3
-
-scaleL :: Float -> Float
 scaleL x = log x
-
-scaleLL3 :: Float -> Float
 scaleLL3 x = exp x
-
-scaleT :: Float -> Float
-scaleT x = tan x
 --}
