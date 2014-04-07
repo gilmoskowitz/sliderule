@@ -9,7 +9,7 @@ e        = exp 1
 srPrec   =  3
 
 srEps :: Float
-srEps    = 10 ** (-srPrec)
+srEps    = 10 ^^ (-srPrec)
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -46,11 +46,11 @@ instance Show SRMark where
 srOffset :: Float -> Float
 srOffset val = logBase 10 val
 
-roundTo :: (RealFrac a, Floating a) => a -> a -> a
-roundTo prec number = fromIntegral (round (number * 10 ** prec)) * 10 ** (-prec)
+roundTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
+roundTo prec number = fromIntegral (round (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
-truncateTo :: (RealFrac a, Floating a) => a -> a -> a
-truncateTo prec number = fromIntegral (truncate (number * 10 ** prec)) * 10 ** (-prec)
+truncateTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
+truncateTo prec number = fromIntegral (truncate (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
 isWhole :: Float -> Bool
 isWhole v = abs (v - fromIntegral (round v)) < srEps
@@ -75,7 +75,7 @@ decimalDigit i x | (-i) >= length intPart = 0
                  where parts = N.floatToDigits 10 x
                        (intPart, fracPart) = splitAt (snd parts) (fst parts)
 {-- this doesn't work because of internal rounding
-decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ** i)
+decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ^^ i)
 --}
 
 tickC v | isWhole v                     = Major
@@ -99,7 +99,7 @@ scaleC = Scale "C" Slide
 
 scaleCI = Scale "CI" Slide
           [ SRMark v (1 + (srOffset $ 1/v)) (tickC v) (labelC v) |
-            v <- reverse $ map (roundTo srPrec) $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+            v <- reverse $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
           ]
           "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
 
@@ -110,7 +110,7 @@ scaleDI = Scale "DI" Bottom (marks scaleCI)
           "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
-          [ SRMark v (srOffset (v ** 2)) (markT v) (label v) |
+          [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
             v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
           ]
           "Square roots for values with an odd number of digits. To find √x, look for x on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
@@ -125,8 +125,8 @@ scaleR1 = Scale "√ (odd # digits)" Bottom
                   | otherwise           = ""
 
 scaleR2 = Scale "√ (even # digits)" Bottom
-          [ SRMark v (srOffset (v ** 2) - 1) (markT v) (label v) |
-            v <- L.sort (sqrt10 : [ truncateTo 2 sqrt10 + 0.01, truncateTo 2 sqrt10 + 0.02 .. 4.99] ++ [5.0, 5.02 .. 10])
+          [ SRMark v (srOffset (v ^^ 2) - 1) (markT v) (label v) |
+            v <- L.sort (sqrt10 : [ 3.17, 3.18 .. 4.99] ++ [5.0, 5.02 .. 10])
           ]
           "Square roots for values with an even number of digits. To find √x, look for x/10 on the D scale (or the C scale if R1 is on the slide) and read √x from the R1 scale."
           where
@@ -224,13 +224,13 @@ scaleDF = Scale "DF" Slide (marks scaleCF)
 
 {--
 scaleA :: Float -> Float
-scaleA x = x ** 2
+scaleA x = x ^^ 2
 
 scaleB :: Float -> Float
-scaleB x = x ** 2
+scaleB x = x ^^ 2
 
 scaleK :: Float -> Float
-scaleK x = x ** 3
+scaleK x = x ^^ 3
 
 scaleL :: Float -> Float
 scaleL x = log x
