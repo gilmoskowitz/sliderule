@@ -220,6 +220,16 @@ scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
                         | isWhole v                     = show $ round v
                         | otherwise                     = ""
 
+scaleL = Scale "L" Slide
+         [ SRMark v v (markT v) (label v) | v <- [0, 0.002 .. 1] ]
+         "Log base 10 of C (D) scale. Thus log 2 ~= 0.477."
+         where markT v | isTenth v        = Major
+                       | isHalf (v * 10)  = Major
+                       | isTenth (v * 10) = Minor
+                       | otherwise        = Tick
+               label v | isTenth  v     = show (roundTo 1 v)
+                       | otherwise      = ""
+
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
             v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
