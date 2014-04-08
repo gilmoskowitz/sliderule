@@ -106,6 +106,27 @@ scaleD  = Scale "D"  Bottom (marks scaleC)
 scaleDI = Scale "DI" Bottom (marks scaleCI)
           "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
 
+scaleA = Scale "A" Top
+         [ SRMark v (srOffset . sqrt $ v) (markT v) (label v) |
+           v <- [1.0, 1.02 .. 4.98 ] ++ [ 5, 5.1 .. 9.9] ++ [10, 10.5 .. 100 ]
+         ]
+         "Square of x. Find x on scale D and read x^2 from Scale A."
+         where
+         markT v | v < 10  && isWhole  v        = Major
+                 | v <  5  && isHalf   v        = Major
+                 | v <  5  && isTenth  v        = Minor
+                 | v < 10  && isHalf   v        = Minor
+                 | isHalf  (v / 10)             = Major
+                 | isWhole v                    = Minor
+                 | otherwise                    = Tick
+         label v | v < 10  && isWhole  v        = show $ round v
+                 | v <  5  && isTenth  v        = show $ decimalDigit 1 (roundTo srPrec v)
+                 | isHalf  (v / 10)             = show $ round v
+                 | otherwise                    = ""
+
+scaleB = Scale "B" Slide (marks scaleA)
+         "Square of x. Find x on scale C and read x^2 from Scale B."
+
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
             v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
