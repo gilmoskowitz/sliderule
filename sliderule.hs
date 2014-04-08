@@ -256,10 +256,48 @@ scaleT2 = Scale "T2" Slide
                    | isWhole v && v > 80 = show $ round v
                    | otherwise           = ""
 
+scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Top
+          [ SRMark v (srOffset . (^^ 3) $ v) (markT v) (label v) |
+            v <- [ 1, 1.005 .. 1.995 ] ++ [ 2, 2.01 .. 10 ** recip 3 + 0.01 ]
+          ]
+          "Cube Root of numbers with 1, 4, 7, ... digits. Find x on D and read 3√x from this scale."
+          where markT v | v < 2 && isTenth  v           = Major
+                        | v < 2 && isHalf  (v * 10)     = Major
+                        | v < 2 && isWhole (v * 100)    = Minor
+                        | v >=2 && isTenth  v           = Major
+                        | v >=2 && isHalf  (v * 10)     = Minor
+                        | otherwise                     = Tick
+                label v | isWhole v = show $ round v
+                        | isTenth v = show $ decimalDigit 1 (roundTo 1 v)
+                        | otherwise = ""
+
+scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Top
+          [ SRMark v ((srOffset . (^^ 3) $ v) - 1) (markT v) (label v) |
+            v <- 10 ** recip 3 : [2.16, 2.17 .. 100 ** recip 3 + 0.01]
+          ]
+          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
+          where markT v | isTenth v                     = Major
+                        | isHalf  (v * 10)              = Minor
+                        | v == 10 ** recip 3            = Offset
+                        | otherwise                     = Tick
+                label v = ""
+
+scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
+          [ SRMark v ((srOffset . (^^ 3) $ v) - 2) (markT v) (label v) |
+            v <- 100 ** recip 3 : [4.65, 4.66 .. 4.99] ++ [ 5, 5.02 .. 10 ]
+          ]
+          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
+          where markT v | isHalf  v                     = Major
+                        | v < 5 && isTenth v            = Major
+                        | v < 5 && isHalf (v * 10)      = Minor
+                        | isTenth v                     = Minor
+                        | v == 100 ** recip 3           = Offset
+                        | otherwise                     = Tick
+                label v | v < 5 && isTenth v            = show $ decimalDigit 1 (roundTo 1 v)
+                        | isWhole v                     = show $ round v
+                        | otherwise                     = ""
+
 {--
-scaleA x = x ^^ 2
-scaleB x = x ^^ 2
-scaleK x = x ^^ 3
 scaleL x = log x
 scaleLL3 x = exp x
 --}
