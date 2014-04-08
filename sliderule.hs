@@ -87,24 +87,6 @@ labelC v | isWhole v          = show (round v)
          | v == e             = "e"
          | otherwise          = "\t"
 
-scaleC = Scale "C" Slide
-         [ SRMark v (srOffset v) (tickC v) (labelC v) |
-           v <- L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
-         ]
-         "Baseline scale on the slide, running from 1 to 10."
-
-scaleCI = Scale "CI" Slide
-          [ SRMark v (1 + (srOffset $ 1/v)) (tickC v) (labelC v) |
-            v <- reverse $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
-          ]
-          "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
-
-scaleD  = Scale "D"  Bottom (marks scaleC)
-          "Baseline scale on the stator. To multiply, place 1 on the C scale above the multiplicand on the D scale, look for the multiplier on the C scale, and read the result from the D scale."
-
-scaleDI = Scale "DI" Bottom (marks scaleCI)
-          "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
-
 scaleA = Scale "A" Top
          [ SRMark v (srOffset . sqrt $ v) (markT v) (label v) |
            v <- [1.0, 1.02 .. 4.98 ] ++ [ 5, 5.1 .. 9.9] ++ [10, 10.5 .. 100 ]
@@ -125,6 +107,118 @@ scaleA = Scale "A" Top
 
 scaleB = Scale "B" Slide (marks scaleA)
          "Square of x. Find x on scale C and read x^2 from Scale B."
+
+scaleC = Scale "C" Slide
+         [ SRMark v (srOffset v) (tickC v) (labelC v) |
+           v <- L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+         ]
+         "Baseline scale on the slide, running from 1 to 10."
+
+scaleCF = Scale "CF" Slide
+          [ SRMark v (srOffset (v / pi)) (markT v) (label v) |
+            v <- L.sort (
+                   [ pi, 10 * pi ]
+                   ++ [  3.16, 3.18 .. 3.98 ] ++ [ 4,  4.05 ..  9.95 ]
+                   ++ [ 10,   10.1 .. 19.9  ] ++ [20, 20.2  .. 31.2  ]
+                 )
+          ]
+          "π to 10π. To find πx, find x on the C (or D) scale and read πx from the CF (or DF) scale."
+          where
+            markT v | v < 10 && isHalf  v       = Major
+                    | v < 10 && isTenth v       = Minor
+                    | isWhole (v / pi)          = Offset
+                    | isWhole v                 = Major
+                    | isHalf  v                 = Minor
+                    | otherwise                 = Tick
+            label v | v < 11 && isWhole v       = show $ round v
+                    | isWhole (v / pi)          = show (round $ v / pi) ++ "π"
+                    | v < 20 && isWhole v       = show $ decimalDigit 0 (roundTo 0 v)
+                    | isWhole (v / 10)          = show $ round (v / 10)
+                    | otherwise                 = ""
+
+scaleCF_M = Scale "CF/M" Slide
+            [ SRMark v (srOffset (v / log 10)) (markT v) (label v) |
+              v <- L.sort (
+                  pi : log 10 : 10 * log 10 : [ 2.32, 2.34 .. 3.98 ]
+                  ++ [ 4, 4.05 .. 9.95 ] ++ [ 10, 10.1 .. 19.9 ]
+                  ++ [20, 20.2 .. 23.2 ]
+              )
+            ]
+            "Convert between log base 10 and natural log: CF/M = C * ln 10 or 10^C = e^CF/M."
+            where
+              markT v | roundTo 4 v == roundTo 4 (log 10)      = Offset
+                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
+                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
+                      | roundTo 4 v == roundTo 4 pi            = Offset
+                      | v < 20 && isHalf   v      = Major
+                      | v < 10 && isTenth  v      = Minor
+                      | v >=20 && isWhole (v / 10)= Major
+                      | v >=20 && isWhole  v      = Minor
+                      | otherwise                 = Tick
+              label v | roundTo 4 v == roundTo 4 pi = "π"
+                      | v < 10 && isWhole v         = show $ round v
+                      | roundTo 1 v `elem` [10, 20] = show $ decimalDigit (-1) v
+                      | v > 10  && isWhole v        = show $ decimalDigit 0 v
+                      | otherwise                   = ""
+
+scaleCI = Scale "CI" Slide
+          [ SRMark v (1 + (srOffset $ 1/v)) (tickC v) (labelC v) |
+            v <- reverse $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+          ]
+          "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
+
+scaleD  = Scale "D"  Bottom (marks scaleC)
+          "Baseline scale on the stator. To multiply, place 1 on the C scale above the multiplicand on the D scale, look for the multiplier on the C scale, and read the result from the D scale."
+
+scaleDF = Scale "DF" Slide (marks scaleCF)
+          "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
+
+scaleDF_M = Scale "DF/M" Slide (marks scaleCF_M)
+          "Convert between log base 10 and natural log: DF/M = D * ln 10 or 10^D = e^DF/M."
+
+scaleDI = Scale "DI" Bottom (marks scaleCI)
+          "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
+
+scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Top
+          [ SRMark v (srOffset . (^^ 3) $ v) (markT v) (label v) |
+            v <- [ 1, 1.005 .. 1.995 ] ++ [ 2, 2.01 .. 10 ** recip 3 + 0.01 ]
+          ]
+          "Cube Root of numbers with 1, 4, 7, ... digits. Find x on D and read 3√x from this scale."
+          where markT v | v < 2 && isTenth  v           = Major
+                        | v < 2 && isHalf  (v * 10)     = Major
+                        | v < 2 && isWhole (v * 100)    = Minor
+                        | v >=2 && isTenth  v           = Major
+                        | v >=2 && isHalf  (v * 10)     = Minor
+                        | otherwise                     = Tick
+                label v | isWhole v = show $ round v
+                        | isTenth v = show $ decimalDigit 1 (roundTo 1 v)
+                        | otherwise = ""
+
+scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Top
+          [ SRMark v ((srOffset . (^^ 3) $ v) - 1) (markT v) (label v) |
+            v <- 10 ** recip 3 : [2.16, 2.17 .. 100 ** recip 3 + 0.01]
+          ]
+          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
+          where markT v | isTenth v                     = Major
+                        | isHalf  (v * 10)              = Minor
+                        | v == 10 ** recip 3            = Offset
+                        | otherwise                     = Tick
+                label v = ""
+
+scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
+          [ SRMark v ((srOffset . (^^ 3) $ v) - 2) (markT v) (label v) |
+            v <- 100 ** recip 3 : [4.65, 4.66 .. 4.99] ++ [ 5, 5.02 .. 10 ]
+          ]
+          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
+          where markT v | isHalf  v                     = Major
+                        | v < 5 && isTenth v            = Major
+                        | v < 5 && isHalf (v * 10)      = Minor
+                        | isTenth v                     = Minor
+                        | v == 100 ** recip 3           = Offset
+                        | otherwise                     = Tick
+                label v | v < 5 && isTenth v            = show $ decimalDigit 1 (roundTo 1 v)
+                        | isWhole v                     = show $ round v
+                        | otherwise                     = ""
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
@@ -214,59 +308,6 @@ scaleST = Scale "ST" Slide
                     | isWhole v                 = show (round v)
                     | otherwise                 = ""
 
-scaleCF = Scale "CF" Slide
-          [ SRMark v (srOffset (v / pi)) (markT v) (label v) |
-            v <- L.sort (
-                   [ pi, 10 * pi ]
-                   ++ [  3.16, 3.18 .. 3.98 ] ++ [ 4,  4.05 ..  9.95 ]
-                   ++ [ 10,   10.1 .. 19.9  ] ++ [20, 20.2  .. 31.2  ]
-                 )
-          ]
-          "π to 10π. To find πx, find x on the C (or D) scale and read πx from the CF (or DF) scale."
-          where
-            markT v | v < 10 && isHalf  v       = Major
-                    | v < 10 && isTenth v       = Minor
-                    | isWhole (v / pi)          = Offset
-                    | isWhole v                 = Major
-                    | isHalf  v                 = Minor
-                    | otherwise                 = Tick
-            label v | v < 11 && isWhole v       = show $ round v
-                    | isWhole (v / pi)          = show (round $ v / pi) ++ "π"
-                    | v < 20 && isWhole v       = show $ decimalDigit 0 (roundTo 0 v)
-                    | isWhole (v / 10)          = show $ round (v / 10)
-                    | otherwise                 = ""
-
-scaleCF_M = Scale "CF/M" Slide
-            [ SRMark v (srOffset (v / log 10)) (markT v) (label v) |
-              v <- L.sort (
-                  pi : log 10 : 10 * log 10 : [ 2.32, 2.34 .. 3.98 ]
-                  ++ [ 4, 4.05 .. 9.95 ] ++ [ 10, 10.1 .. 19.9 ]
-                  ++ [20, 20.2 .. 23.2 ]
-              )
-            ]
-            "Convert between log base 10 and natural log: CF/M = C * ln 10 or 10^C = e^CF/M."
-            where
-              markT v | roundTo 4 v == roundTo 4 (log 10)      = Offset
-                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
-                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
-                      | roundTo 4 v == roundTo 4 pi            = Offset
-                      | v < 20 && isHalf   v      = Major
-                      | v < 10 && isTenth  v      = Minor
-                      | v >=20 && isWhole (v / 10)= Major
-                      | v >=20 && isWhole  v      = Minor
-                      | otherwise                 = Tick
-              label v | roundTo 4 v == roundTo 4 pi = "π"
-                      | v < 10 && isWhole v         = show $ round v
-                      | roundTo 1 v `elem` [10, 20] = show $ decimalDigit (-1) v
-                      | v > 10  && isWhole v        = show $ decimalDigit 0 v
-                      | otherwise                   = ""
-
-scaleDF = Scale "DF" Slide (marks scaleCF)
-          "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
-
-scaleDF_M = Scale "DF/M" Slide (marks scaleCF_M)
-          "Convert between log base 10 and natural log: DF/M = D * ln 10 or 10^D = e^DF/M."
-
 scaleT1 = Scale "T1" Slide
          [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
            v <- L.sort ( (degrees . atan $ 0.1) : [5.75, 5.80 .. 9.95 ]
@@ -303,49 +344,3 @@ scaleT2 = Scale "T2" Slide
            label v | isHalf (v / 10)     = show $ round v
                    | isWhole v && v > 80 = show $ round v
                    | otherwise           = ""
-
-scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Top
-          [ SRMark v (srOffset . (^^ 3) $ v) (markT v) (label v) |
-            v <- [ 1, 1.005 .. 1.995 ] ++ [ 2, 2.01 .. 10 ** recip 3 + 0.01 ]
-          ]
-          "Cube Root of numbers with 1, 4, 7, ... digits. Find x on D and read 3√x from this scale."
-          where markT v | v < 2 && isTenth  v           = Major
-                        | v < 2 && isHalf  (v * 10)     = Major
-                        | v < 2 && isWhole (v * 100)    = Minor
-                        | v >=2 && isTenth  v           = Major
-                        | v >=2 && isHalf  (v * 10)     = Minor
-                        | otherwise                     = Tick
-                label v | isWhole v = show $ round v
-                        | isTenth v = show $ decimalDigit 1 (roundTo 1 v)
-                        | otherwise = ""
-
-scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Top
-          [ SRMark v ((srOffset . (^^ 3) $ v) - 1) (markT v) (label v) |
-            v <- 10 ** recip 3 : [2.16, 2.17 .. 100 ** recip 3 + 0.01]
-          ]
-          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
-          where markT v | isTenth v                     = Major
-                        | isHalf  (v * 10)              = Minor
-                        | v == 10 ** recip 3            = Offset
-                        | otherwise                     = Tick
-                label v = ""
-
-scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
-          [ SRMark v ((srOffset . (^^ 3) $ v) - 2) (markT v) (label v) |
-            v <- 100 ** recip 3 : [4.65, 4.66 .. 4.99] ++ [ 5, 5.02 .. 10 ]
-          ]
-          "Cube Root of numbers with 2, 5, 8, ... digits. Find x/10 on D and read 3√x from this scale."
-          where markT v | isHalf  v                     = Major
-                        | v < 5 && isTenth v            = Major
-                        | v < 5 && isHalf (v * 10)      = Minor
-                        | isTenth v                     = Minor
-                        | v == 100 ** recip 3           = Offset
-                        | otherwise                     = Tick
-                label v | v < 5 && isTenth v            = show $ decimalDigit 1 (roundTo 1 v)
-                        | isWhole v                     = show $ round v
-                        | otherwise                     = ""
-
-{--
-scaleL x = log x
-scaleLL3 x = exp x
---}
