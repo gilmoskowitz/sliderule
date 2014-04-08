@@ -65,12 +65,11 @@ radians :: Floating a => a -> a
 radians d = d * pi / 180
 
 decimalDigit :: RealFloat b => Int -> b -> Int
-decimalDigit i x | (-i) >= length intPart = 0
-                 | i <= 0                = intPart  !! (length intPart + i - 1)
-                 | i <= length fracPart  = fracPart !! (i - 1)
-                 | otherwise             = 0
-                 where parts = N.floatToDigits 10 x
-                       (intPart, fracPart) = splitAt (snd parts) (fst parts)
+decimalDigit i x | offset < 0   = 0
+                 | offset >= length digits = 0
+                 | otherwise               = digits !! offset
+                 where (digits,  pointPos) = N.floatToDigits 10 x
+                       offset = pointPos + i - 1
 {-- this doesn't work because of internal rounding
 decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ^^ i)
 --}
@@ -237,8 +236,36 @@ scaleCF = Scale "CF" Slide
                     | isWhole (v / 10)          = show $ round (v / 10)
                     | otherwise                 = ""
 
+scaleCF_M = Scale "CF/M" Slide
+            [ SRMark v (srOffset (v / log 10)) (markT v) (label v) |
+              v <- L.sort (
+                  pi : log 10 : 10 * log 10 : [ 2.32, 2.34 .. 3.98 ]
+                  ++ [ 4, 4.05 .. 9.95 ] ++ [ 10, 10.1 .. 19.9 ]
+                  ++ [20, 20.2 .. 23.2 ]
+              )
+            ]
+            "Convert between log base 10 and natural log: CF/M = C * ln 10 or 10^C = e^CF/M."
+            where
+              markT v | roundTo 4 v == roundTo 4 (log 10)      = Offset
+                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
+                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
+                      | roundTo 4 v == roundTo 4 pi            = Offset
+                      | v < 20 && isHalf   v      = Major
+                      | v < 10 && isTenth  v      = Minor
+                      | v >=20 && isWhole (v / 10)= Major
+                      | v >=20 && isWhole  v      = Minor
+                      | otherwise                 = Tick
+              label v | roundTo 4 v == roundTo 4 pi = "π"
+                      | v < 10 && isWhole v         = show $ round v
+                      | roundTo 1 v `elem` [10, 20] = show $ decimalDigit (-1) v
+                      | v > 10  && isWhole v        = show $ decimalDigit 0 v
+                      | otherwise                   = ""
+
 scaleDF = Scale "DF" Slide (marks scaleCF)
           "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
+
+scaleDF_M = Scale "DF/M" Slide (marks scaleCF_M)
+          "Convert between log base 10 and natural log: DF/M = D * ln 10 or 10^D = e^DF/M."
 
 scaleT1 = Scale "T1" Slide
          [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
