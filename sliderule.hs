@@ -15,6 +15,24 @@ data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
 data Location = Top | Slide | Bottom   deriving (Eq, Enum, Ord, Show)
 
+data Distance = Normalized Double
+              | Distance  {
+                  wholePart       :: Int,
+                  numeratorPart   :: Double,
+                  denominatorPart :: Int
+                }
+              deriving (Show)
+
+instance Eq Distance where
+  (Normalized x)   == (Normalized y)      = (x == y)
+  (Distance w n d) == (Distance w' n' d') = (w == w') && (n / fromIntegral d == n' / fromIntegral d')
+  _ == _ = False
+
+instance Ord Distance where
+  Normalized x <= Normalized y            = x <= y
+  Distance w n d <= Distance w' n' d'     = w <  w'
+                                         || (w == w' && (n / fromIntegral d <= n' / fromIntegral d'))
+
 data SRMark = SRMark {
   value    :: Double,
   distance :: Double,
@@ -29,11 +47,33 @@ data Scale = Scale {
   desc  :: String
 } deriving (Show)
 
+data DistanceMark = DistanceMark {
+  dvalue    :: Double,
+  ddistance :: Distance,
+  dmark     :: MarkType,
+  dlabel    :: String
+} deriving (Eq)
+
+data DistanceScale = DistanceScale {
+  dname  :: String,
+  dloc   :: Location,
+  dmarks :: [DistanceMark],
+  ddesc  :: String
+} deriving (Show)
+
 instance Ord SRMark where
   SRMark _ d _ _ <= SRMark _ e _ _ = d <= e
 
 instance Show SRMark where
   show x = "\n" ++ indent (mark x) (label x) ++ "\t" ++ (show $ value x) ++ " (" ++ (show $ distance x) ++ ")"
+                        where indent m l | m == Major  = "--- " ++ l
+                                         | m == Minor  = "--  " ++ l
+                                         | m == Tick   = "-   " ++ l
+                                         | m == Offset = "   <" ++ l
+                                         | otherwise   = "    " ++ l
+
+instance Show DistanceMark where
+  show x = "\n" ++ indent (dmark x) (dlabel x) ++ "\t" ++ (show $ dvalue x) ++ " (" ++ (show $ ddistance x) ++ ")"
                         where indent m l | m == Major  = "--- " ++ l
                                          | m == Minor  = "--  " ++ l
                                          | m == Tick   = "-   " ++ l
@@ -73,6 +113,32 @@ decimalDigit i x | offset < 0   = 0
 {-- this doesn't work because of internal rounding
 decimalDigit i x = truncate ((x - truncateTo (i - 1) x) * 10 ^^ i)
 --}
+
+{- convert real x to a proper fraction with denominator d, where the numerator
+   is a floating point number, not an integer
+   This is used to convert scale output to fractions of an inch
+-}
+normalizeDigits :: ([Int], Int) -> ([Int], Int)
+normalizeDigits ([], _)   = ([], 0)
+normalizeDigits (ds, 0)   = (ds, 0)
+normalizeDigits (d:ds, l) = if l < 0 then normalizeDigits (0:d:ds, l+1)
+                            else normalizeDigits (d:ds ++ [0], l-1)
+
+toFraction :: (RealFrac a, RealFloat a) => Int -> a -> Distance
+toFraction d x = Distance intPart n d
+             where (intPart, fracPart) = properFraction x
+                   d' = fromIntegral d
+                   places = length (takeWhile (> 10 ^^ negate 5) (map (\x -> 1 / d' ^ x) [0..]))
+                   fracDigits = fst . normalizeDigits $ (N.floatToDigits (toInteger d) fracPart)
+                   digitToFrac (x,y) = fromIntegral x / d' ^ y
+                   n' = sum (map digitToFrac $ zip fracDigits [1 .. places])
+                   n  = n' * d'
+
+--scaleUp :: Num a => Scale -> a -> Int -> DistanceScale
+scaleUp scale len units = DistanceScale (name scale) (loc scale) newMarks (desc scale)
+  where newMarks = map (\x -> DistanceMark (value x)
+                                     (toFraction units $ distance x * len)
+                                     (mark  x) (label x)) (marks scale)
 
 tickC v | isWhole v                     = Major
         | v < 4 && isTenth v            = Major
@@ -216,9 +282,9 @@ scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
                         | isTenth v                     = Minor
                         | v == 100 ** recip 3           = Offset
                         | otherwise                     = Tick
-                label v | v < 5 && isTenth v            = show $ decimalDigit 1 (roundTo 1 v)
-                        | isWhole v                     = show $ round v
-                        | otherwise                     = ""
+                label v | v < 5 && isTenth v    = show $ decimalDigit 1 (roundTo 1 v)
+                        | isWhole v             = show $ round v
+                        | otherwise             = ""
 
 scaleL = Scale "L" Slide
          [ SRMark v v (markT v) (label v) | v <- [0, 0.002 .. 1] ]
