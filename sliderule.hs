@@ -8,8 +8,11 @@ import qualified Numeric    as N
 e        = exp 1
 srPrec   =  3
 
-srEps :: Double
 srEps    = 10 ^^ (-srPrec)
+
+infix 4 ~=
+(~=) :: (Fractional a, Ord a) => a -> a -> Bool
+x ~= y = abs (x - y) < 10 ^^ negate 5
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -128,7 +131,7 @@ toFraction :: (RealFrac a, RealFloat a) => Int -> a -> Distance
 toFraction d x = Distance intPart n d
              where (intPart, fracPart) = properFraction x
                    d' = fromIntegral d
-                   places = length (takeWhile (> 10 ^^ negate 5) (map (\x -> 1 / d' ^ x) [0..]))
+                   places = length (takeWhile (\x -> not (0 ~= x)) (map (\x -> 1 / d' ^ x) [0..]))
                    fracDigits = fst . normalizeDigits $ (N.floatToDigits (toInteger d) fracPart)
                    digitToFrac (x,y) = fromIntegral x / d' ^ y
                    n' = sum (map digitToFrac $ zip fracDigits [1 .. places])
@@ -212,18 +215,17 @@ scaleCF_M = Scale "CF/M" Slide
             ]
             "Convert between log base 10 and natural log: CF/M = C * ln 10 or 10^C = e^CF/M."
             where
-              markT v | roundTo 4 v == roundTo 4 (log 10)      = Offset
-                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
-                      | roundTo 4 v == roundTo 4 (log 10 * 10) = Offset
-                      | roundTo 4 v == roundTo 4 pi            = Offset
+              markT v | v ~= log 10               = Offset
+                      | v ~= log 10 * 10          = Offset
+                      | v ~= pi                   = Offset
                       | v < 20 && isHalf   v      = Major
                       | v < 10 && isTenth  v      = Minor
                       | v >=20 && isWhole (v / 10)= Major
                       | v >=20 && isWhole  v      = Minor
                       | otherwise                 = Tick
-              label v | roundTo 4 v == roundTo 4 pi = "π"
+              label v | v ~= pi                     = "π"
                       | v < 10 && isWhole v         = show $ round v
-                      | roundTo 1 v `elem` [10, 20] = show $ decimalDigit (-1) v
+                      | v ~= 10 || v ~= 20          = show $ decimalDigit (-1) v
                       | v > 10  && isWhole v        = show $ decimalDigit 0 v
                       | otherwise                   = ""
 
@@ -296,6 +298,29 @@ scaleL = Scale "L" Slide
                label v | isTenth  v     = show (roundTo 1 v)
                        | otherwise      = ""
 
+scaleLL0 = Scale "LL0" Top
+-- TODO: what should the offset be?
+           [ SRMark v (srOffset (1000 * logBase 10 v)) (markT v) (label v) |
+             v <- L.sort ([10 ** 0.001, 10 ** 0.01]
+                 ++ [1.00232, 1.00234 .. 1.00498 ]
+                 ++ [ 1.005, 1.00505 .. 1.00995]
+                 ++ [ 1.01,   1.0101 .. 1.0199 ] ++ [ 1.02, 1.0202 .. 10**0.01 ]
+                 )
+           ]
+           "log-log scale for x between ~1.00025 and ~1.023. Use with LL2 (3, 4) scales to find x^10 (100, 1000), and C scale to find x^n."
+           where markT v | v ~= 10 ** 0.001                = Offset
+                         | v ~= 10 ** 0.01                 = Offset
+                         | v < 1.01 && isHalf  (v *  1000) = Major
+                         | v < 1.01 && isWhole (v * 10000) = Minor
+                         | v < 1.02 && isWhole (v *  1000) = Major
+                         | v < 1.02 && isHalf  (v *  1000) = Minor
+                         | isWhole (v *  100)              = Major
+                         | isWhole (v * 1000)              = Minor
+                         | otherwise                       = Tick
+                 label v | or (map (v ~=) [1.0025, 1.015, 1.02]) = show $ roundTo 4 v
+                         | v < 1.011 && isWhole (v * 1000) = show $ roundTo 3 v
+                         | otherwise      = ""
+
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
             v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
@@ -326,7 +351,7 @@ scaleR2 = Scale "√ (even # digits)" Bottom
                     | v == sqrt10               = Offset
                     | otherwise                 = Tick
             label v | isWhole v                 = (show $ round v)
-                    | v < 5 && isWhole (v * 10) = show $ decimalDigit 1 (roundTo srPrec v)
+                    | v < 5 && isTenth v        = show $ decimalDigit 1 (roundTo srPrec v)
                     | v == sqrt10               = "√10"
                     | otherwise                 = ""
 
