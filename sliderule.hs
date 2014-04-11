@@ -92,6 +92,12 @@ roundTo prec number = fromIntegral (round (number * 10 ^^ prec)) * 10 ^^ (-prec)
 truncateTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
+between :: Ord a => a -> String -> a -> a -> Bool
+between x str l u | str == "[]" = l <= x && x <= u
+                  | str == "[)" = l <= x && x <  u
+                  | str == "(]" = l <  x && x <= u
+                  | str == "()" = l <  x && x <  u
+
 isWhole :: Double -> Bool
 isWhole v = abs (v - fromIntegral (round v)) < srEps
 
@@ -299,7 +305,6 @@ scaleL = Scale "L" Slide
                        | otherwise      = ""
 
 scaleLL0 = Scale "LL0" Top
--- TODO: what should the offset be?
            [ SRMark v (srOffset (1000 * logBase 10 v)) (markT v) (label v) |
              v <- L.sort ([10 ** 0.001, 10 ** 0.01]
                  ++ [1.00232, 1.00234 .. 1.00498 ]
@@ -307,7 +312,7 @@ scaleLL0 = Scale "LL0" Top
                  ++ [ 1.01,   1.0101 .. 1.0199 ] ++ [ 1.02, 1.0202 .. 10**0.01 ]
                  )
            ]
-           "log-log scale for x between ~1.00025 and ~1.023. Use with LL2 (3, 4) scales to find x^10 (100, 1000), and C scale to find x^n."
+           "log-log scale for x between ~1.00025 and ~1.023. Use with LL1 (2, 3) scales to find x^10 (100, 1000), and C scale to find x^n."
            where markT v | v ~= 10 ** 0.001                = Offset
                          | v ~= 10 ** 0.01                 = Offset
                          | v < 1.01 && isHalf  (v *  1000) = Major
@@ -320,6 +325,54 @@ scaleLL0 = Scale "LL0" Top
                  label v | or (map (v ~=) [1.0025, 1.015, 1.02]) = show $ roundTo 4 v
                          | v < 1.011 && isWhole (v * 1000) = show $ roundTo 3 v
                          | otherwise      = ""
+
+scaleLL1 = Scale "LL1" Top
+           [ SRMark v (srOffset (100 * logBase 10 v)) (markT v) (label v) |
+             v <- L.sort ([10 ** 0.01, 10 ** 0.1]
+                 ++ [1.0232, 1.0234 .. 1.0498 ]
+                 ++ [ 1.05, 1.0505 .. 1.0995]
+                 ++ [ 1.1,   1.101 .. 1.199 ] ++ [ 1.2, 1.202 .. 10**0.1 ]
+                 )
+           ]
+           "log-log scale for x between ~1.02 and ~1.26. Use with LL2 (0, 3) scales to find x^10 (0.1, 100), and C scale to find x^n."
+           where markT v | v ~= 10 ** 0.01               = Offset
+                         | v ~= 10 ** 0.1                = Offset
+                         | v < 1.1 && isHalf  (v *  100) = Major
+                         | v < 1.1 && isWhole (v * 1000) = Minor
+                         | v < 1.2 && isWhole (v *  100) = Major
+                         | v < 1.2 && isHalf  (v *  100) = Minor
+                         | isWhole (v *  10)             = Major
+                         | isWhole (v * 100)             = Minor
+                         | otherwise                     = Tick
+                 label v | or (map (v ~=) [1.025, 1.15, 1.2]) = show $ roundTo 4 v
+                         | v < 1.101 && isWhole (v * 100) = show $ roundTo 3 v
+                         | otherwise      = ""
+
+scaleLL2 = Scale "LL2" Top
+           [ SRMark v (srOffset (10 * logBase 10 v)) (markT v) (label v) |
+             v <- L.sort (10 ** 0.1 : e : pi : [ 1.26, 1.262 .. 1.398]
+                 ++ [ 1.4, 1.405 .. 1.795 ] ++ [ 1.8 , 1.81  .. 1.99 ]
+                 ++ [ 2  , 2.01  .. 2.49  ] ++ [ 2.5 , 2.52  .. 3.98 ]
+                 ++ [ 4  , 4.05  .. 5.95  ] ++ [ 6   , 6.1   ..10    ]
+                 )
+           ]
+           "log-log scale for x between ~1.25 and 10. Use with LL3 (0, 1) scales to find x^10 (0.01, 0.1), and C scale to find x^n."
+           where markT v | or (map (v ~=) [10**0.1,e,pi])             = Offset
+                         | v < 1.8 && isHalf  (v * 10) = Major
+                         | v < 1.8 && isTenth (v * 10) = Minor
+                         | between v "[)" 1.8 2   && isTenth  v       = Major
+                         | between v "[)" 1.8 2   && isHalf  (v * 10) = Minor
+                         | between v "[]" 2   2.5 && isTenth  v       = Major
+                         | between v "[]" 2   2.5 && isHalf  (v * 10) = Minor
+                         | isHalf  v                                  = Major
+                         | v < 6   && isTenth  v                      = Minor
+                         | otherwise                                  = Tick
+                 label v | v ~= e                 = "e"
+                         | v ~= pi                = "π"
+                         | v <= 2   && isTenth  v = show $ roundTo 1 v
+                         | v ~= 2.5               = show $ roundTo 1 v
+                         | isWhole v              = show $ round v
+                         | otherwise              = ""
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
