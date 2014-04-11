@@ -5,6 +5,28 @@ import Data.Ratio
 import qualified Data.List  as L
 import qualified Numeric    as N
 
+main = do
+  let actualLength = 36
+  let scales = [ scaleK1,
+                 scaleK2,
+--               scaleK3,
+                 scaleDF,
+                 scaleCF,
+--               scaleT1,
+--               scaleT2,
+--               scaleST,
+                 scaleS,
+--               scaleCI,
+                 scaleC,
+                 scaleD,
+--               scaleDI,
+                 scaleR1,
+                 scaleR2
+               ]
+  let marks = (concat (map (\s -> distanceScaleToStr (scaleUp s actualLength 8))
+           scales))
+  putStr (L.unlines marks)
+
 e        = exp 1
 srPrec   =  3
 
@@ -14,7 +36,7 @@ x ~= y = abs (x - y) < 10 ^^ negate 5
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
-data Location = Top | Slide | Bottom   deriving (Eq, Enum, Ord, Show)
+data Location = Unspecified | Body | Slide   deriving (Eq, Enum, Ord, Show)
 
 data Distance = Normalized Double
               | Distance  {
@@ -147,6 +169,22 @@ scaleUp scale len units = DistanceScale (name scale) (loc scale) newMarks (desc 
                                      (toFraction units $ distance x * len)
                                      (mark  x) (label x)) (marks scale)
 
+distanceScaleToStr :: DistanceScale -> [String]
+distanceScaleToStr d = [ l | m <- dmarks d,
+                                 let l = L.intercalate "\t"
+                                         [dname d,  markToStr (dmark m),
+                                          dlabel m, distToStr (ddistance m)]
+                           ]
+                         where distToStr dist = (shows (wholePart dist)
+                                                . showChar ' '
+                                                . N.showGFloat (Just 3) (numeratorPart dist)
+                                                . showChar '/'
+                                                . N.showInt (denominatorPart dist)) ""
+                               markToStr Major = "---"
+                               markToStr Minor = "-- "
+                               markToStr Tick  = "-  "
+                               markToStr Offset= "  <"
+
 tickC v | isWhole v                     = Major
         | v < 2 && isTenth v            = Major
         | v < 2 && isHalf (v * 10)      = Minor
@@ -160,9 +198,9 @@ labelC v | isWhole v          = show (round v)
          | v < 2 && isTenth v = show $ decimalDigit 1 (roundTo srPrec v)
          | v == pi            = "π"
          | v == e             = "e"
-         | otherwise          = "\t"
+         | otherwise          = ""
 
-scaleA = Scale "A" Top
+scaleA = Scale "A" Body
          [ SRMark v (srOffset . sqrt $ v) (markT v) (label v) |
            v <- [1.0, 1.02 .. 4.98 ] ++ [ 5, 5.1 .. 9.9] ++ [10, 10.5 .. 100 ]
          ]
@@ -241,19 +279,19 @@ scaleCI = Scale "CI" Slide
           ]
           "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
 
-scaleD  = Scale "D"  Bottom (marks scaleC)
+scaleD  = Scale "D"  Body (marks scaleC)
           "Baseline scale on the stator. To multiply, place 1 on the C scale above the multiplicand on the D scale, look for the multiplier on the C scale, and read the result from the D scale."
 
-scaleDF = Scale "DF" Slide (marks scaleCF)
+scaleDF = Scale "DF" Body (marks scaleCF)
           "π to 10π. Multiply or divide using the C and D scales ignoring factors of π, then read the result off the corresponding CF scale. Thus to calculate 3/4 π, calculate 3 / 4 by aligning C4 over D3 and read 7.5 (/ 10) from the D scale. Then read ~2.36 off DF."
 
-scaleDF_M = Scale "DF/M" Slide (marks scaleCF_M)
+scaleDF_M = Scale "DF/M" Body (marks scaleCF_M)
           "Convert between log base 10 and natural log: DF/M = D * ln 10 or 10^D = e^DF/M."
 
-scaleDI = Scale "DI" Bottom (marks scaleCI)
+scaleDI = Scale "DI" Body (marks scaleCI)
           "Inversion scale. To find 1/x, look for x on the D scale and read the inverse from the DI scale."
 
-scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Top
+scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Body
           [ SRMark v (srOffset . (^^ 3) $ v) (markT v) (label v) |
             v <- [ 1, 1.005 .. 1.995 ] ++ [ 2, 2.01 .. 10 ** recip 3 + 0.01 ]
           ]
@@ -268,7 +306,7 @@ scaleK1 = Scale "3√ (# digits = [1,4,7,...])" Top
                         | isTenth v = show $ decimalDigit 1 (roundTo 1 v)
                         | otherwise = ""
 
-scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Top
+scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Body
           [ SRMark v ((srOffset . (^^ 3) $ v) - 1) (markT v) (label v) |
             v <- 10 ** recip 3 : [2.16, 2.17 .. 100 ** recip 3 + 0.01]
           ]
@@ -279,7 +317,7 @@ scaleK2 = Scale "3√ (# digits = [2,5,8,...])" Top
                         | otherwise                     = Tick
                 label v = ""
 
-scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
+scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Body
           [ SRMark v ((srOffset . (^^ 3) $ v) - 2) (markT v) (label v) |
             v <- 100 ** recip 3 : [4.65, 4.66 .. 4.99] ++ [ 5, 5.02 .. 10 ]
           ]
@@ -294,7 +332,7 @@ scaleK3 = Scale "3√ (# digits = [3,6,9,...])" Top
                         | isWhole v             = show $ round v
                         | otherwise             = ""
 
-scaleL = Scale "L" Slide
+scaleL = Scale "L" Unspecified
          [ SRMark v v (markT v) (label v) | v <- [0, 0.002 .. 1] ]
          "Log base 10 of C (D) scale. Thus log 2 ~= 0.477."
          where markT v | isTenth v        = Major
@@ -304,7 +342,7 @@ scaleL = Scale "L" Slide
                label v | isTenth  v     = show (roundTo 1 v)
                        | otherwise      = ""
 
-scaleLL0 = Scale "LL0" Top
+scaleLL0 = Scale "LL0" Body
            [ SRMark v (srOffset (1000 * logBase 10 v)) (markT v) (label v) |
              v <- L.sort ([10 ** 0.001, 10 ** 0.01]
                  ++ [1.00232, 1.00234 .. 1.00498 ]
@@ -326,7 +364,7 @@ scaleLL0 = Scale "LL0" Top
                          | v < 1.011 && isWhole (v * 1000) = show $ roundTo 3 v
                          | otherwise      = ""
 
-scaleLL1 = Scale "LL1" Top
+scaleLL1 = Scale "LL1" Body
            [ SRMark v (srOffset (100 * logBase 10 v)) (markT v) (label v) |
              v <- L.sort ([10 ** 0.01, 10 ** 0.1]
                  ++ [1.0232, 1.0234 .. 1.0498 ]
@@ -348,7 +386,7 @@ scaleLL1 = Scale "LL1" Top
                          | v < 1.101 && isWhole (v * 100) = show $ roundTo 3 v
                          | otherwise      = ""
 
-scaleLL2 = Scale "LL2" Bottom
+scaleLL2 = Scale "LL2" Body
            [ SRMark v (srOffset (10 * logBase 10 v)) (markT v) (label v) |
              v <- L.sort (10 ** 0.1 : e : pi : [ 1.26, 1.262 .. 1.398]
                  ++ [ 1.4, 1.405 .. 1.795 ] ++ [ 1.8 , 1.81  .. 1.99 ]
@@ -374,7 +412,7 @@ scaleLL2 = Scale "LL2" Bottom
                          | isWhole v              = show $ round v
                          | otherwise              = ""
 
-scaleLL3 = Scale "LL3" Bottom
+scaleLL3 = Scale "LL3" Body
            [ SRMark v (srOffset (logBase 10 v)) (markT v) (label v) |
              v <- (L.sort . (L.nubBy (~=))) ([10, 10.2 .. 15] ++ [15, 15.5 .. 30] ++ [30 .. 49] 
                ++ [50, 52   ..  100] ++ [100, 105 .. 200 ] ++ [200, 210 .. 500]
@@ -402,7 +440,7 @@ scaleLL3 = Scale "LL3" Bottom
                          | v `elem` [10^x | x <- [3..10]] = "10^" ++ ((show . round) (logBase 10 v))
                          | otherwise  = ""
 
-scaleR1 = Scale "√ (odd # digits)" Bottom
+scaleR1 = Scale "√ (odd # digits)" Body
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
             v <- L.sort ([1.0, 1.005 .. 1.995] ++ [2.0, 2.01 .. sqrt 10])
           ]
@@ -417,7 +455,7 @@ scaleR1 = Scale "√ (odd # digits)" Bottom
                   | isWhole (10 * v)    = show $ decimalDigit 1 (roundTo srPrec v)
                   | otherwise           = ""
 
-scaleR2 = Scale "√ (even # digits)" Bottom
+scaleR2 = Scale "√ (even # digits)" Body
           [ SRMark v (srOffset (v ^^ 2) - 1) (markT v) (label v) |
             v <- L.sort (sqrt10 : [ 3.17, 3.18 .. 4.99] ++ [5.0, 5.02 .. 10])
           ]
@@ -436,7 +474,7 @@ scaleR2 = Scale "√ (even # digits)" Bottom
                     | v == sqrt10               = "√10"
                     | otherwise                 = ""
 
-scaleS = Scale "S" Slide
+scaleS = Scale "S" Unspecified
          [ SRMark v (1 + (srOffset . sin . radians $ v)) (markT v) (label v) |
            v <- L.sort (
                        degrees (asin 0.1) : [5.75, 5.80 ..  9.95]
@@ -469,7 +507,7 @@ scaleS = Scale "S" Slide
 {-- TODO: Pickett marks scaleST with " at ~1.18˚ and ' at ~1.965˚. why?
           are they really for 11.9˚ and 20.1˚ on scaleS???
 --}
-scaleST = Scale "ST" Slide
+scaleST = Scale "ST" Unspecified
           [ SRMark v ((srOffset . sin . radians) v - srOffset asin_01) (markT v) (label v) |
             v <- L.sort (
                 [degrees asin_01, 0.58, 0.59] ++ [0.6, 0.62 .. 0.98] ++ [ 1, 1.02 .. 10 * (degrees asin_01) ]
@@ -490,7 +528,7 @@ scaleST = Scale "ST" Slide
                     | isWhole v                 = show (round v)
                     | otherwise                 = ""
 
-scaleT1 = Scale "T1" Slide
+scaleT1 = Scale "T1" Unspecified
          [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
            v <- L.sort ( (degrees . atan $ 0.1) : [5.75, 5.80 .. 9.95 ]
                        ++ [10, 10.1  .. 29.9] ++ [30, 30.2 .. 45 ]
@@ -509,7 +547,7 @@ scaleT1 = Scale "T1" Slide
                    | isWhole v && v < 10 = show $ round v
                    | otherwise           = ""
 
-scaleT2 = Scale "T2" Slide
+scaleT2 = Scale "T2" Unspecified
          [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
            v <- L.sort ( [45, 45.2  .. 58.8] ++ [60, 60.1 .. 79.9]
                        ++ [80, 80.05 .. 84.3]
