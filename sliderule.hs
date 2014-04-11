@@ -92,8 +92,8 @@ roundTo prec number = fromIntegral (round (number * 10 ^^ prec)) * 10 ^^ (-prec)
 truncateTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
-between :: Ord a => a -> String -> a -> a -> Bool
-between x str l u | str == "[]" = l <= x && x <= u
+inRange :: Ord a => a -> String -> a -> a -> Bool
+inRange x str l u | str == "[]" = l <= x && x <= u
                   | str == "[)" = l <= x && x <  u
                   | str == "(]" = l <  x && x <= u
                   | str == "()" = l <  x && x <  u
@@ -348,7 +348,7 @@ scaleLL1 = Scale "LL1" Top
                          | v < 1.101 && isWhole (v * 100) = show $ roundTo 3 v
                          | otherwise      = ""
 
-scaleLL2 = Scale "LL2" Top
+scaleLL2 = Scale "LL2" Bottom
            [ SRMark v (srOffset (10 * logBase 10 v)) (markT v) (label v) |
              v <- L.sort (10 ** 0.1 : e : pi : [ 1.26, 1.262 .. 1.398]
                  ++ [ 1.4, 1.405 .. 1.795 ] ++ [ 1.8 , 1.81  .. 1.99 ]
@@ -360,10 +360,10 @@ scaleLL2 = Scale "LL2" Top
            where markT v | or (map (v ~=) [10**0.1,e,pi])             = Offset
                          | v < 1.8 && isHalf  (v * 10) = Major
                          | v < 1.8 && isTenth (v * 10) = Minor
-                         | between v "[)" 1.8 2   && isTenth  v       = Major
-                         | between v "[)" 1.8 2   && isHalf  (v * 10) = Minor
-                         | between v "[]" 2   2.5 && isTenth  v       = Major
-                         | between v "[]" 2   2.5 && isHalf  (v * 10) = Minor
+                         | inRange v "[)" 1.8 2   && isTenth  v       = Major
+                         | inRange v "[)" 1.8 2   && isHalf  (v * 10) = Minor
+                         | inRange v "[]" 2   2.5 && isTenth  v       = Major
+                         | inRange v "[]" 2   2.5 && isHalf  (v * 10) = Minor
                          | isHalf  v                                  = Major
                          | v < 6   && isTenth  v                      = Minor
                          | otherwise                                  = Tick
@@ -373,6 +373,35 @@ scaleLL2 = Scale "LL2" Top
                          | v ~= 2.5               = show $ roundTo 1 v
                          | isWhole v              = show $ round v
                          | otherwise              = ""
+
+scaleLL3 = Scale "LL3" Bottom
+           [ SRMark v (srOffset (logBase 10 v)) (markT v) (label v) |
+             v <- (L.sort . (L.nubBy (~=))) ([10, 10.2 .. 15] ++ [15, 15.5 .. 30] ++ [30 .. 49] 
+               ++ [50, 52   ..  100] ++ [100, 105 .. 200 ] ++ [200, 210 .. 500]
+               ++ [500, 550 .. 1000]
+               ++ [x | base  <- [1, 1.5 .. 10],
+                       expon <- [3 ..  9],
+                       let x = base * 10 ^ expon ]
+             )
+           ]
+           "log-log scale for x between 10 and 10^10. Use with LL2 (0, 1) scales to find x^0.1 (0.001, 0.01), and C scale to find x^n."
+           where markT v | v `elem` ( 15:[10, 20..50] ++ [100, 150]
+                                      ++ [200, 300 .. 500]
+                                      ++ [10^x | x <- [3..10]]
+                                    ) = Major
+                         | v < 30 && isHalf (v / 10) = Major
+                         | v < 30 && isWhole v = Minor
+                         | inRange v "[]" 30  50 && isHalf  (v / 10) = Minor
+                         | inRange v "[)" 50 200 && isWhole (v / 10) = Minor
+                         | inRange v "[)" 200 500&& isHalf  (v /100) = Minor
+                         | inRange v "[)" 500 1000&& isWhole (v /100) = Minor
+                         -- for large v, fst floatToDigits is [x] xor [x,5]
+                         | v > 1000 && (fst . (N.floatToDigits 10)) v == [5] = Major
+                         | v > 1000 && (length . fst . (N.floatToDigits 10)) v == 1 = Minor
+                         | otherwise            = Tick
+                 label v | or (map (v ~=) ( 15:[10, 20..50] ++ [100, 200, 500] )) = show $ round v
+                         | v `elem` [10^x | x <- [3..10]] = "10^" ++ ((show . round) (logBase 10 v))
+                         | otherwise  = ""
 
 scaleR1 = Scale "√ (odd # digits)" Bottom
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
