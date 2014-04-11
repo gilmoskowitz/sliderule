@@ -8,8 +8,6 @@ import qualified Numeric    as N
 e        = exp 1
 srPrec   =  3
 
-srEps    = 10 ^^ (-srPrec)
-
 infix 4 ~=
 (~=) :: (Fractional a, Ord a) => a -> a -> Bool
 x ~= y = abs (x - y) < 10 ^^ negate 5
@@ -99,7 +97,7 @@ inRange x str l u | str == "[]" = l <= x && x <= u
                   | str == "()" = l <  x && x <  u
 
 isWhole :: Double -> Bool
-isWhole v = abs (v - fromIntegral (round v)) < srEps
+isWhole v = abs (v - fromIntegral (round v)) ~= 0
 
 isTenth :: Double -> Bool
 isTenth x = isWhole (x * 10)
@@ -150,8 +148,10 @@ scaleUp scale len units = DistanceScale (name scale) (loc scale) newMarks (desc 
                                      (mark  x) (label x)) (marks scale)
 
 tickC v | isWhole v                     = Major
-        | v < 4 && isTenth v            = Major
-        | v < 4 && isHalf (v * 10)      = Minor
+        | v < 2 && isTenth v            = Major
+        | v < 2 && isHalf (v * 10)      = Minor
+        | v < 4 && isHalf  v            = Major
+        | v < 4 && isTenth v            = Minor
         | v >= 4 && isTenth v           = Minor
         | v `elem` [ pi, e ]            = Offset
         | otherwise                     = Tick
@@ -185,7 +185,7 @@ scaleB = Scale "B" Slide (marks scaleA)
 
 scaleC = Scale "C" Slide
          [ SRMark v (srOffset v) (tickC v) (labelC v) |
-           v <- L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+           v <- (L.sort . (L.nubBy (~=))) (pi:e:[1, 1.01 .. 2] ++ [2, 2.02 .. 4] ++ [4, 4.05 .. 10])
          ]
          "Baseline scale on the slide, running from 1 to 10."
 
@@ -387,19 +387,18 @@ scaleLL3 = Scale "LL3" Bottom
            "log-log scale for x between 10 and 10^10. Use with LL2 (0, 1) scales to find x^0.1 (0.001, 0.01), and C scale to find x^n."
            where markT v | v `elem` ( 15:[10, 20..50] ++ [100, 150]
                                       ++ [200, 300 .. 500]
-                                      ++ [10^x | x <- [3..10]]
-                                    ) = Major
-                         | v < 30 && isHalf (v / 10) = Major
-                         | v < 30 && isWhole v = Minor
-                         | inRange v "[]" 30  50 && isHalf  (v / 10) = Minor
-                         | inRange v "[)" 50 200 && isWhole (v / 10) = Minor
-                         | inRange v "[)" 200 500&& isHalf  (v /100) = Minor
-                         | inRange v "[)" 500 1000&& isWhole (v /100) = Minor
+                                      ++ [10^x | x <- [3..10]])         = Major
+                         | v < 30 && isHalf (v / 10)                    = Major
+                         | v < 30 && isWhole v                          = Minor
+                         | inRange v "[]"  30   50 && isHalf  (v / 10)  = Minor
+                         | inRange v "[)"  50  200 && isWhole (v / 10)  = Minor
+                         | inRange v "[)" 200  500 && isHalf  (v /100)  = Minor
+                         | inRange v "[)" 500 1000 && isWhole (v /100)  = Minor
                          -- for large v, fst floatToDigits is [x] xor [x,5]
-                         | v > 1000 && (fst . (N.floatToDigits 10)) v == [5] = Major
-                         | v > 1000 && (length . fst . (N.floatToDigits 10)) v == 1 = Minor
+                         | v > 1000 && (fst . (N.floatToDigits 10)) v == [5]    = Major
+                         | v > 1000 && (length.fst.(N.floatToDigits 10)) v == 1 = Minor
                          | otherwise            = Tick
-                 label v | or (map (v ~=) ( 15:[10, 20..50] ++ [100, 200, 500] )) = show $ round v
+                 label v | or (map (v~=) (15:[10,20..50] ++ [100,200,500])) = show $ round v
                          | v `elem` [10^x | x <- [3..10]] = "10^" ++ ((show . round) (logBase 10 v))
                          | otherwise  = ""
 
