@@ -9,17 +9,17 @@ main = do
   let actualLength = 36
   let scales = [ scaleK1,
                  scaleK2,
---               scaleK3,
+                 scaleK3,
                  scaleDF,
                  scaleCF,
 --               scaleT1,
---               scaleT2,
+                 scaleT2,
 --               scaleST,
                  scaleS,
---               scaleCI,
+                 scaleCI,
                  scaleC,
                  scaleD,
---               scaleDI,
+                 scaleDI,
                  scaleR1,
                  scaleR2
                ]
@@ -157,9 +157,10 @@ toFraction :: (RealFrac a, RealFloat a) => Int -> a -> Distance
 toFraction d x = Distance intPart n d
              where (intPart, fracPart) = properFraction x
                    d' = fromIntegral d
-                   places = length (takeWhile (\x -> not (0 ~= x)) (map (\x -> 1 / d' ^ x) [0..]))
-                   fracDigits = fst . normalizeDigits $ (N.floatToDigits (toInteger d) fracPart)
-                   digitToFrac (x,y) = fromIntegral x / d' ^ y
+                   places = length (takeWhile (\x -> not (0 ~= x)) (map (\x -> 1 / d' ^^ x) [0..]))
+                   fracDigits | fracPart ~= 0 = [0]
+                              | otherwise     = fst . normalizeDigits $ (N.floatToDigits (toInteger d) fracPart)
+                   digitToFrac (x,y) = fromIntegral x / d' ^^ y
                    n' = sum (map digitToFrac $ zip fracDigits [1 .. places])
                    n  = n' * d'
 
