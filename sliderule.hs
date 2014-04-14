@@ -690,3 +690,29 @@ scaleT2 = Scale "T2" Unspecified
            label v | isHalf (v / 10)     = show $ round v
                    | isWhole v && v > 80 = show $ round v
                    | otherwise           = ""
+
+scaleTH = Scale "TH" Unspecified
+          [ SRMark v (srOffset . (10*) . tanh $ v) (markT v) (label v) |
+            v <- (L.sort . (L.nubBy (~=)))
+                   (  [0.1, 0.101 .. 0.2] ++ [0.2, 0.202 .. 0.4]
+                   ++ [0.4, 0.405 .. 0.7] ++ [0.7, 0.71  .. 1]
+                   ++ [1,   1.02  .. 1.4] ++ [1.4, 1.45  .. 2] ++ [2, 2.5, 3, 3.5]
+                   )
+          ]
+          "Hyperbolic tangent for angles between 0.10 and 3.5. Find x on scale TH; scale C (or D) shows 10 * tanh x."
+          where
+            markT v | v <  0.2 && isWhole (v * 100) = Major
+                    | v <  0.2 && isHalf  (v * 100) = Minor
+                    | inRange v "[]" 0.2 0.7 && isHalf  (v *  10) = Major
+                    | inRange v "[]" 0.2 0.7 && isWhole (v * 100) = Minor
+                    | inRange v "[]" 0.7 1   && isTenth  v        = Major
+                    | inRange v "[]" 0.7 1   && isHalf  (v *  10) = Minor
+                    | inRange v "[]" 1   2   && isHalf   v        = Major
+                    | v > 2                  && isWhole  v        = Major
+                    | v > 2                  && isHalf   v        = Minor
+                    | v >= 1   && isTenth v                       = Minor
+                    | otherwise       = Tick
+            label v | v < 0.2 && isWhole (v * 100) = show $ roundTo 2 v
+                    | v < 0.4 && isHalf  (v *  10) = show $ roundTo 2 v
+                    | isTenth v                    = show $ roundTo 1 v
+                    | otherwise                    = ""
