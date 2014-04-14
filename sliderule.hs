@@ -571,10 +571,10 @@ scaleR2 = Scale "√ (even # digits)" Body
 
 scaleS = Scale "S" Unspecified
          [ SRMark v (1 + (srOffset . sin . radians $ v)) (markT v) (label v) |
-           v <- L.sort (
-                       degrees (asin 0.1) : [5.75, 5.80 ..  9.95]
-                       ++ [10,  10.1 .. 19.9 ] ++ [20,  20.2  .. 29.8 ]
-                       ++ [30,  30.5 .. 59.49] ++ [60 .. 79] ++ [80, 85, 90]
+           v <- (L.sort . (L.nubBy (~=))) (
+                       degrees (asin 0.1) : [5.75, 5.80 ..  10]
+                       ++ [10,  10.1 .. 20 ] ++ [20,  20.2  .. 30 ]
+                       ++ [30,  30.5 .. 60 ] ++ [60 .. 80] ++ [80, 85, 90]
                        )
          ]
          "Sine and Cosine for angles between ~6 and 90˚. To find sin x, look for Sx on the S scale and read sin x from the C scale (or D if S is on the stator). To find cos x, look for Cx on the S scale and read cos x from the C (D) scale."
@@ -598,6 +598,37 @@ scaleS = Scale "S" Unspecified
                    | truncate v == 90 = "S90"
                    | otherwise        = ""
                    where complement = 90 - round v
+
+scaleSH1 = Scale "SH1" Unspecified
+          [ SRMark v (srOffset . (10*) . sinh $ v) (markT v) (label v) |
+            v <- (L.sort . (L.nubBy (~=))) (
+                [ 0.1, 0.101 .. 0.2] ++ [0.2, 0.202 .. 0.4] ++ [0.4, 0.405 .. 0.885]
+                )
+          ]
+          "Hyperbolic Sine for angles between 0.1 and ~0.9. Find x on SH, then C (or D) shows 10 * sinh x."
+          where
+            markT v | v <  0.2 && isWhole (v * 100) = Major
+                    | v <  0.2 && isHalf  (v * 100) = Minor
+                    | isHalf  (v *  10) = Major
+                    | isWhole (v * 100) = Minor
+                    | otherwise       = Tick
+            label v | v < 0.2 && isWhole (v * 100) = show $ roundTo 2 v
+                    | v < 0.4 && isHalf  (v *  10) = show $ roundTo 2 v
+                    | isTenth v                    = show $ roundTo 1 v
+                    | otherwise                    = ""
+
+scaleSH2 = Scale "SH2" Unspecified
+          [ SRMark v (srOffset . sinh $ v) (markT v) (label v) |
+            v <- (L.sort . (L.nubBy (~=))) ( asinh 1 : [ 0.89, 0.9 .. 3 ])
+          ]
+          "Hyperbolic Sine for angles between ~0.9 and 3. Find x on SH, then C (or D) shows sinh x."
+          where
+            markT v | isTenth v       = Major
+                    | isHalf (v * 10) = Minor
+                    | v ~= asinh 1    = Offset
+                    | otherwise       = Tick
+            label v | isTenth v                    = show $ roundTo 1 v
+                    | otherwise                    = ""
 
 {-- TODO: Pickett marks scaleST with " at ~1.18˚ and ' at ~1.965˚. why?
           are they really for 11.9˚ and 20.1˚ on scaleS???
