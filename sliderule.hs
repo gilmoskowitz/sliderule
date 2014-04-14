@@ -7,21 +7,34 @@ import qualified Numeric    as N
 
 main = do
   let actualLength = 36
-  let scales = [ scaleK1,
-                 scaleK2,
-                 scaleK3,
-                 scaleDF,
-                 scaleCF,
---               scaleT1,
-                 scaleT2,
---               scaleST,
-                 scaleS,
-                 scaleCI,
-                 scaleC,
-                 scaleD,
-                 scaleDI,
-                 scaleR1,
-                 scaleR2
+  let scales = [ scaleA
+               , scaleB
+               , scaleC
+               , scaleCF
+               , scaleCF_M
+               , scaleCI
+               , scaleD
+               , scaleDF
+               , scaleDF_M
+               , scaleDI
+               , scaleK1
+               , scaleK2
+               , scaleK3
+               , scaleL
+               , scaleLL0
+               , scaleLL0I
+--             , scaleLL1
+               , scaleLL1I
+               , scaleLL2
+               , scaleLL2I
+               , scaleLL3
+               , scaleLL3I
+               , scaleR1
+               , scaleR2
+               , scaleS
+--             , scaleST
+--             , scaleT1
+               , scaleT2
                ]
   let marks = (concat (map (\s -> distanceScaleToStr (scaleUp s actualLength 8))
            scales))
@@ -32,7 +45,10 @@ srPrec   =  3
 
 infix 4 ~=
 (~=) :: (Fractional a, Ord a) => a -> a -> Bool
-x ~= y = abs (x - y) < 10 ^^ negate 5
+0 ~= 0 = True
+0 ~= x = abs x < 1e-10
+x ~= 0 = abs x < 1e-10
+x ~= y = abs (x - y) < x * 10 ^^ negate 5
 
 data MarkType = Major | Minor | Tick | Offset deriving (Eq, Enum, Ord, Show)
 
@@ -113,7 +129,8 @@ truncateTo :: (Integral b, RealFrac a, Floating a) => b -> a -> a
 truncateTo prec number = fromIntegral (truncate (number * 10 ^^ prec)) * 10 ^^ (-prec)
 
 inRange :: Ord a => a -> String -> a -> a -> Bool
-inRange x str l u | str == "[]" = l <= x && x <= u
+inRange x str l u | l > u       = inRange x str u l
+                  | str == "[]" = l <= x && x <= u
                   | str == "[)" = l <= x && x <  u
                   | str == "(]" = l <  x && x <= u
                   | str == "()" = l <  x && x <  u
@@ -230,10 +247,10 @@ scaleC = Scale "C" Slide
 
 scaleCF = Scale "CF" Slide
           [ SRMark v (srOffset (v / pi)) (markT v) (label v) |
-            v <- L.sort (
+            v <- (L.sort . (L.nubBy (~=))) (
                    [ pi, 10 * pi ]
-                   ++ [  3.16, 3.18 .. 3.98 ] ++ [ 4,  4.05 ..  9.95 ]
-                   ++ [ 10,   10.1 .. 19.9  ] ++ [20, 20.2  .. 31.2  ]
+                   ++ [  3.16, 3.18 ..  4 ] ++ [ 4,  4.05 .. 10 ]
+                   ++ [ 10,   10.1  .. 20 ] ++ [20, 20.2  .. 31.2 ]
                  )
           ]
           "π to 10π. To find πx, find x on the C (or D) scale and read πx from the CF (or DF) scale."
@@ -252,9 +269,9 @@ scaleCF = Scale "CF" Slide
 
 scaleCF_M = Scale "CF/M" Slide
             [ SRMark v (srOffset (v / log 10)) (markT v) (label v) |
-              v <- L.sort (
-                  pi : log 10 : 10 * log 10 : [ 2.32, 2.34 .. 3.98 ]
-                  ++ [ 4, 4.05 .. 9.95 ] ++ [ 10, 10.1 .. 19.9 ]
+              v <- (L.sort . (L.nubBy (~=))) (
+                  pi : log 10 : 10 * log 10 : [  2.32, 2.34 .. 4 ]
+                  ++ [ 4, 4.05 .. 9.95 ] ++   [ 10,   10.1 .. 20 ]
                   ++ [20, 20.2 .. 23.2 ]
               )
             ]
@@ -276,7 +293,8 @@ scaleCF_M = Scale "CF/M" Slide
 
 scaleCI = Scale "CI" Slide
           [ SRMark v (1 + (srOffset $ 1/v)) (tickC v) (labelC v) |
-            v <- reverse $ L.sort (pi:e:[1.0, 1.01 .. 3.99] ++ [4.0, 4.05 .. 10])
+            v <- (reverse . L.sort . (L.nubBy (~=)))
+                   (pi:e:[1.0, 1.01 .. 4 ] ++ [4.0, 4.05 .. 10])
           ]
           "Inversion scale. To find 1/x, look for x on the C scale and read the inverse from the CI scale."
 
@@ -344,11 +362,10 @@ scaleL = Scale "L" Unspecified
                        | otherwise      = ""
 
 scaleLL0 = Scale "LL0" Body
-           [ SRMark v (srOffset (1000 * logBase 10 v)) (markT v) (label v) |
-             v <- L.sort ([10 ** 0.001, 10 ** 0.01]
-                 ++ [1.00232, 1.00234 .. 1.00498 ]
-                 ++ [ 1.005, 1.00505 .. 1.00995]
-                 ++ [ 1.01,   1.0101 .. 1.0199 ] ++ [ 1.02, 1.0202 .. 10**0.01 ]
+           [ SRMark v (srOffset $ 1000 * logBase 10 v) (markT v) (label v) |
+             v <- (L.sort . (L.nubBy (~=))) ([10 ** 0.001, 10 ** 0.01]
+                 ++ [1.00232, 1.00234 .. 1.005] ++ [ 1.005, 1.00505 .. 1.01]
+                 ++ [1.01,    1.0101  .. 1.02 ] ++ [ 1.02,  1.0202  .. 10**0.01]
                  )
            ]
            "log-log scale for x between ~1.00025 and ~1.023. Use with LL1 (2, 3) scales to find x^10 (100, 1000), and C scale to find x^n."
@@ -363,6 +380,27 @@ scaleLL0 = Scale "LL0" Body
                          | otherwise                       = Tick
                  label v | or (map (v ~=) [1.0025, 1.015, 1.02]) = show $ roundTo 4 v
                          | v < 1.011 && isWhole (v * 1000) = show $ roundTo 3 v
+                         | otherwise      = ""
+
+scaleLL0I = Scale "LL0I" Body
+           [ SRMark v (srOffset $ 1000 * logBase 10 (recip v)) (markT v) (label v) |
+             v <- (reverse . L.sort . (L.nubBy (~=)))
+                    ([recip 10 ** 0.001, recip 10 ** 0.01]
+                     ++ [0.9780, 0.9785 .. 0.99  ]
+                     ++ [0.9901, 0.9902 .. 0.9976]
+                    )
+           ]
+           "Inverse log-log scale for x. Can be used to find reciprocals of numbers slightly larger than 1 (compare to LL0 scale) and some negative exponents."
+           where markT v | recip v ~= 10 ** 0.001          = Offset
+                         | recip v ~= 10 ** 0.01           = Offset
+                         | v < 0.99 && isHalf  (v *  100)  = Major
+                         | v < 0.99 && isWhole (v * 1000)  = Minor
+                         | inRange v "()" 0.99 0.996 && isWhole (v * 1000) = Major
+                         | inRange v "()" 0.99 0.996 && isHalf  (v * 1000) = Minor
+                         | v >= 0.995                && isHalf  (v * 1000) = Major
+                         | otherwise                       = Tick
+                 label v | v >= 0.995 && isWhole (v * 1000) = "<" ++ (show $ roundTo 3 v)
+                         | v ~= 0.98 || v ~= 0.99           = "<" ++ (show $ roundTo 3 v)
                          | otherwise      = ""
 
 scaleLL1 = Scale "LL1" Body
@@ -386,6 +424,26 @@ scaleLL1 = Scale "LL1" Body
                  label v | or (map (v ~=) [1.025, 1.15, 1.2]) = show $ roundTo 4 v
                          | v < 1.101 && isWhole (v * 100) = show $ roundTo 3 v
                          | otherwise      = ""
+
+scaleLL1I = Scale "LL1I" Body
+           [ SRMark v (srOffset $ 100 * logBase 10 (recip v)) (markT v) (label v) |
+             v <- (reverse . L.sort . (L.nubBy (~=)))
+                    ([recip 10 ** 0.01, recip 10 ** 0.1]
+                     ++ [0.796, 0.798 .. 0.90  ]
+                     ++ [0.90,  0.901 .. 0.977 ]
+                    )
+           ]
+           "Inverse log-log scale for x. Can be used to find reciprocals of numbers between 1.02 and 1.25 (compare to LL1 scale) and some negative exponents."
+           where markT v | recip v ~= 10 ** 0.01           = Offset
+                         | recip v ~= 10 ** 0.1            = Offset
+                         | v < 0.90 && isHalf  (v *  10)   = Major
+                         | v < 0.90 && isWhole (v * 100)   = Minor
+                         | v >=0.90 && isWhole (v * 100)   = Major
+                         | v >=0.90 && isHalf  (v * 100)   = Minor
+                         | otherwise                       = Tick
+                 label v | v <  0.90 && isHalf  (v * 10) = "<" ++ (show $ roundTo 2 v)
+                         | v >= 0.90 && isWhole (v *100) = "<" ++ (show $ roundTo 2 v)
+                         | otherwise                     = ""
 
 scaleLL2 = Scale "LL2" Body
            [ SRMark v (srOffset (10 * logBase 10 v)) (markT v) (label v) |
@@ -413,9 +471,22 @@ scaleLL2 = Scale "LL2" Body
                          | isWhole v              = show $ round v
                          | otherwise              = ""
 
+scaleLL2I = Scale "LL2I" Body
+           [ SRMark v (srOffset $ 10 * logBase 10 (recip v)) (markT v) (label v) |
+             v <- (reverse . L.sort . (L.nubBy (~=)))
+                   (recip 10 ** 0.1 : [ 0.1 , 0.105 .. 0.79 ])
+           ]
+           "Inverse log-log scale for x between ~0.1 and 0.79. Use with LL2 to find reciprocals of numbers between ~1.25 and 10 and some negative exponents."
+           where markT v | recip v ~= 10 ** 0.1 = Offset
+                         | isHalf  (v * 10)     = Major
+                         | isWhole (v * 100)    = Minor 
+                         | otherwise            = Tick
+                 label v | isHalf  (v * 10) = show $ roundTo 2 v
+                         | otherwise        = ""
+
 scaleLL3 = Scale "LL3" Body
            [ SRMark v (srOffset (logBase 10 v)) (markT v) (label v) |
-             v <- (L.sort . (L.nubBy (~=))) ([10, 10.2 .. 15] ++ [15, 15.5 .. 30] ++ [30 .. 49] 
+             v <- (L.sort . (L.nubBy (~=))) ([10, 10.2 .. 15] ++ [15, 15.5 .. 30] ++ [30 .. 49]
                ++ [50, 52   ..  100] ++ [100, 105 .. 200 ] ++ [200, 210 .. 500]
                ++ [500, 550 .. 1000]
                ++ [x | base  <- [1, 1.5 .. 10],
@@ -440,6 +511,29 @@ scaleLL3 = Scale "LL3" Body
                  label v | or (map (v~=) (15:[10,20..50] ++ [100,200,500])) = show $ round v
                          | v `elem` [10^x | x <- [3..10]] = "10^" ++ ((show . round) (logBase 10 v))
                          | otherwise  = ""
+
+scaleLL3I = Scale "LL3I" Body
+           [ SRMark v (srOffset $ logBase 10 (recip v)) (markT v) (label v) |
+             v <- (L.reverse . L.sort . (L.nubBy (~=)))
+                   ( 10e-10 :
+                    [x | base  <- [1 .. 10],
+                         expon <- [3 .. 10],
+                         let x = base * 10 ^^ negate expon ]
+                    ++ [ 0.001, 0.0015 .. 0.01] ++ [0.01, 0.012 .. 0.05]
+                    ++ [ 0.05, 0.055 .. 0.1 ]
+             )
+           ]
+           "Inverse log-log scale for x between 0.1 and 10^-10. Use with LL3 to find reciprocals of large numbers and som negative exponents."
+           where markT v | v `elem` ( [10 ^^ negate x | x <- [3..10]]) = Major
+                         | v < 10e-3 && isHalf  (normalize v) = Minor
+                         | inRange v "()" 0.001 0.01 && isWhole (v * 1000)    = Minor
+                         | v >= 0.01 && isHalf  (v * 10)      = Major
+                         | v >= 0.01 && isWhole (v * 100)      = Minor
+                         | otherwise            = Tick
+                 label v | or (map (v~=) (15:[10,20..50] ++ [100,200,500])) = show $ round v
+                         | v `elem` [10^x | x <- [3..10]] = "10^" ++ ((show . round) (logBase 10 v))
+                         | otherwise  = ""
+                 normalize x = x * (10 ^^ (negate . snd) (N.floatToDigits 10 x))
 
 scaleR1 = Scale "√ (odd # digits)" Body
           [ SRMark v (srOffset (v ^^ 2)) (markT v) (label v) |
