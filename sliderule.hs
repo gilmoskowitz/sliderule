@@ -32,9 +32,12 @@ main = do
                , scaleR1
                , scaleR2
                , scaleS
+               , scaleSH1
+               , scaleSH2
 --             , scaleST
 --             , scaleT1
                , scaleT2
+--             , scaleTH
                ]
   let marks = (concat (map (\s -> distanceScaleToStr (scaleUp s actualLength 8))
            scales))
