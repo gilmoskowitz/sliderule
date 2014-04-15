@@ -1,26 +1,31 @@
 {- Copyright © Gil Moskowitz 2014
 -}
 
-import Data.Ratio
+import qualified System.Environment as S
 import qualified Data.List  as L
 import qualified Numeric    as N
 
 main = do
-  let actualLength = 36
-  let scales = [ scaleA
-               , scaleB
+  args <- S.getArgs
+  let actualLength = if length args > 0 then read (args !! 0) else 36
+  let scales = [ -- use the front for multiplication, division, exponentiation
+               -- Top front:
+               scaleA           -- squares
+               , scaleR1        -- sqrt
+               , scaleR2        -- sqrt
+               , scaleK1        -- cube root
+               , scaleK2        -- cube root
+               , scaleK3        -- cube root
+               --
+               -- Slide front:
+               , scaleL         -- logBase 10
+               , scaleCF_M      -- logBase 10 <-> ln
+               , scaleCI        -- reciprocals
                , scaleC
-               , scaleCF
-               , scaleCF_M
-               , scaleCI
+               --
+               -- Bottom front:
                , scaleD
-               , scaleDF
                , scaleDF_M
-               , scaleDI
-               , scaleK1
-               , scaleK2
-               , scaleK3
-               , scaleL
                , scaleLL0
                , scaleLL0I
                , scaleLL1
@@ -29,15 +34,25 @@ main = do
                , scaleLL2I
                , scaleLL3
                , scaleLL3I
-               , scaleR1
-               , scaleR2
-               , scaleS
-               , scaleSH1
-               , scaleSH2
-               , scaleST
+               --
+               -- use the back for geometry and trig
+               -- Top back:
                , scaleT1
                , scaleT2
+               , scaleST
+               , scaleS
+               -- Slide back:
+               , scaleCF
+               , scaleC
+               -- Bottom back:
+               , scaleD
+               , scaleDF
+               , scaleSH1
+               , scaleSH2
                , scaleTH
+               --
+               -- unused
+--             , scaleB
                ]
   let marks = concat
               (map (\s -> distanceScaleToStr (scaleUp s actualLength 8)) scales)
