@@ -23,7 +23,7 @@ main = do
                , scaleL
                , scaleLL0
                , scaleLL0I
---             , scaleLL1
+               , scaleLL1
                , scaleLL1I
                , scaleLL2
                , scaleLL2I
@@ -34,10 +34,10 @@ main = do
                , scaleS
                , scaleSH1
                , scaleSH2
---             , scaleST
---             , scaleT1
+               , scaleST
+               , scaleT1
                , scaleT2
---             , scaleTH
+               , scaleTH
                ]
   let marks = (concat (map (\s -> distanceScaleToStr (scaleUp s actualLength 8))
            scales))
@@ -179,7 +179,7 @@ toFraction d x = Distance intPart n d
                    d' = fromIntegral d
                    places = length (takeWhile (\x -> not (0 ~= x)) (map (\x -> 1 / d' ^^ x) [0..]))
                    fracDigits | fracPart ~= 0 = [0]
-                              | otherwise     = fst . normalizeDigits $ (N.floatToDigits (toInteger d) fracPart)
+                              | otherwise     = fst . normalizeDigits $ (N.floatToDigits (toInteger d) (abs fracPart))
                    digitToFrac (x,y) = fromIntegral x / d' ^^ y
                    n' = sum (map digitToFrac $ zip fracDigits [1 .. places])
                    n  = n' * d'
