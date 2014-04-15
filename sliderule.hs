@@ -198,7 +198,7 @@ distanceScaleToStr d = [ l | m <- dmarks d,
                            ]
                          where distToStr dist = (shows (wholePart dist)
                                                 . showChar ' '
-                                                . N.showGFloat (Just 3) (numeratorPart dist)
+                                                . N.showFFloat (Just 3) (numeratorPart dist)
                                                 . showChar '/'
                                                 . N.showInt (denominatorPart dist)) ""
                                markToStr Major = "---"
@@ -361,7 +361,7 @@ scaleL = Scale "L" Unspecified
                        | isHalf (v * 10)  = Major
                        | isTenth (v * 10) = Minor
                        | otherwise        = Tick
-               label v | isTenth  v     = show (roundTo 1 v)
+               label v | isTenth  v     = N.showFFloat (Just 1) v $ ""
                        | otherwise      = ""
 
 scaleLL0 = Scale "LL0" Body
@@ -381,8 +381,8 @@ scaleLL0 = Scale "LL0" Body
                          | isWhole (v *  100)              = Major
                          | isWhole (v * 1000)              = Minor
                          | otherwise                       = Tick
-                 label v | or (map (v ~=) [1.0025, 1.015, 1.02]) = show $ roundTo 4 v
-                         | v < 1.011 && isWhole (v * 1000) = show $ roundTo 3 v
+                 label v | or (map (v ~=) [1.0025, 1.015, 1.02]) = N.showFFloat (Just 4) v $ ""
+                         | v < 1.011 && isWhole (v * 1000) = N.showFFloat (Just 3) v $ ""
                          | otherwise      = ""
 
 scaleLL0I = Scale "LL0I" Body
@@ -402,8 +402,8 @@ scaleLL0I = Scale "LL0I" Body
                          | inRange v "()" 0.99 0.996 && isHalf  (v * 1000) = Minor
                          | v >= 0.995                && isHalf  (v * 1000) = Major
                          | otherwise                       = Tick
-                 label v | v >= 0.995 && isWhole (v * 1000) = "<" ++ (show $ roundTo 3 v)
-                         | v ~= 0.98 || v ~= 0.99           = "<" ++ (show $ roundTo 3 v)
+                 label v | v >= 0.995 && isWhole (v * 1000) = "<" ++ (N.showFFloat (Just 3) v $ "")
+                         | v ~= 0.98 || v ~= 0.99           = "<" ++ (N.showFFloat (Just 3) v $ "")
                          | otherwise      = ""
 
 scaleLL1 = Scale "LL1" Body
@@ -424,8 +424,8 @@ scaleLL1 = Scale "LL1" Body
                          | isWhole (v *  10)             = Major
                          | isWhole (v * 100)             = Minor
                          | otherwise                     = Tick
-                 label v | or (map (v ~=) [1.025, 1.15, 1.2]) = show $ roundTo 4 v
-                         | v < 1.101 && isWhole (v * 100) = show $ roundTo 3 v
+                 label v | or (map (v ~=) [1.025, 1.15, 1.2]) = (N.showFFloat (Just 3) v $ "")
+                         | v < 1.101 && isWhole (v * 100) = (N.showFFloat (Just 2) v $ "")
                          | otherwise      = ""
 
 scaleLL1I = Scale "LL1I" Body
@@ -444,8 +444,8 @@ scaleLL1I = Scale "LL1I" Body
                          | v >=0.90 && isWhole (v * 100)   = Major
                          | v >=0.90 && isHalf  (v * 100)   = Minor
                          | otherwise                       = Tick
-                 label v | v <  0.90 && isHalf  (v * 10) = "<" ++ (show $ roundTo 2 v)
-                         | v >= 0.90 && isWhole (v *100) = "<" ++ (show $ roundTo 2 v)
+                 label v | v <  0.90 && isHalf  (v * 10) = "<" ++ (N.showFFloat (Just 2) v $ "")
+                         | v >= 0.90 && isWhole (v *100) = "<" ++ (N.showFFloat (Just 2) v $ "")
                          | otherwise                     = ""
 
 scaleLL2 = Scale "LL2" Body
@@ -469,8 +469,8 @@ scaleLL2 = Scale "LL2" Body
                          | otherwise                                  = Tick
                  label v | v ~= e                 = "e"
                          | v ~= pi                = "π"
-                         | v <= 2   && isTenth  v = show $ roundTo 1 v
-                         | v ~= 2.5               = show $ roundTo 1 v
+                         | v <= 2   && isTenth  v = N.showFFloat (Just 1) v $ ""
+                         | v ~= 2.5               = N.showFFloat (Just 1) v $ ""
                          | isWhole v              = show $ round v
                          | otherwise              = ""
 
@@ -484,7 +484,7 @@ scaleLL2I = Scale "LL2I" Body
                          | isHalf  (v * 10)     = Major
                          | isWhole (v * 100)    = Minor 
                          | otherwise            = Tick
-                 label v | isHalf  (v * 10) = show $ roundTo 2 v
+                 label v | isHalf  (v * 10) = N.showFFloat (Just 2) v $ ""
                          | otherwise        = ""
 
 scaleLL3 = Scale "LL3" Body
@@ -615,9 +615,9 @@ scaleSH1 = Scale "SH1" Unspecified
                     | isHalf  (v *  10) = Major
                     | isWhole (v * 100) = Minor
                     | otherwise       = Tick
-            label v | v < 0.2 && isWhole (v * 100) = show $ roundTo 2 v
-                    | v < 0.4 && isHalf  (v *  10) = show $ roundTo 2 v
-                    | isTenth v                    = show $ roundTo 1 v
+            label v | v < 0.2 && isWhole (v * 100) = N.showFFloat (Just 2) v $ ""
+                    | v < 0.4 && isHalf  (v *  10) = N.showFFloat (Just 2) v $ ""
+                    | isTenth v                    = N.showFFloat (Just 1) v $ ""
                     | otherwise                    = ""
 
 scaleSH2 = Scale "SH2" Unspecified
@@ -630,7 +630,7 @@ scaleSH2 = Scale "SH2" Unspecified
                     | isHalf (v * 10) = Minor
                     | v ~= asinh 1    = Offset
                     | otherwise       = Tick
-            label v | isTenth v                    = show $ roundTo 1 v
+            label v | isTenth v                    = N.showFFloat (Just 1) v $ ""
                     | otherwise                    = ""
 
 {-- TODO: Pickett marks scaleST with " at ~1.18˚ and ' at ~1.965˚. why?
@@ -651,9 +651,9 @@ scaleST = Scale "ST" Unspecified
                     | isWhole (v * 10)          = Minor
                     | v == degrees asin_01      = Offset
                     | otherwise                 = Tick
-            label v | v < 1 && isWhole (v * 10) = "0." ++ show (round (v * 10))
+            label v | v < 1 && isWhole (v * 10) = N.showFFloat (Just 1) v $ ""
                     | v == 1                    = "1˚"
-                    | v < 3 && isHalf v         = show (roundTo 1 v)
+                    | v < 3 && isHalf v         = N.showFFloat (Just 1) v $ ""
                     | isWhole v                 = show (round v)
                     | otherwise                 = ""
 
@@ -715,7 +715,7 @@ scaleTH = Scale "TH" Unspecified
                     | v > 2                  && isHalf   v        = Minor
                     | v >= 1   && isTenth v                       = Minor
                     | otherwise       = Tick
-            label v | v < 0.2 && isWhole (v * 100) = show $ roundTo 2 v
-                    | v < 0.4 && isHalf  (v *  10) = show $ roundTo 2 v
-                    | isTenth v                    = show $ roundTo 1 v
+            label v | v < 0.2 && isWhole (v * 100) = N.showFFloat (Just 2) v $ ""
+                    | v < 0.4 && isHalf  (v *  10) = N.showFFloat (Just 2) v $ ""
+                    | isTenth v                    = N.showFFloat (Just 1) v $ ""
                     | otherwise                    = ""
