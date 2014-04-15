@@ -39,8 +39,8 @@ main = do
                , scaleT2
                , scaleTH
                ]
-  let marks = (concat (map (\s -> distanceScaleToStr (scaleUp s actualLength 8))
-           scales))
+  let marks = concat
+              (map (\s -> distanceScaleToStr (scaleUp s actualLength 8)) scales)
   putStr (L.unlines marks)
 
 e        = exp 1
@@ -182,7 +182,7 @@ toFraction d x = Distance intPart n d
                               | otherwise     = fst . normalizeDigits $ (N.floatToDigits (toInteger d) (abs fracPart))
                    digitToFrac (x,y) = fromIntegral x / d' ^^ y
                    n' = sum (map digitToFrac $ zip fracDigits [1 .. places])
-                   n  = n' * d'
+                   n  = n' * d' * (if intPart == 0 && fracPart < 0 then (-1) else 1)
 
 --scaleUp :: Num a => Scale -> a -> Int -> DistanceScale
 scaleUp scale len units = DistanceScale (name scale) (loc scale) newMarks (desc scale)
@@ -658,7 +658,7 @@ scaleST = Scale "ST" Unspecified
                     | otherwise                 = ""
 
 scaleT1 = Scale "T1" Unspecified
-         [ SRMark v (srOffset . tan . radians $ v) (markT v) (label v) |
+         [ SRMark v (srOffset . (10*) . tan . radians $ v) (markT v) (label v) |
            v <- L.sort ( (degrees . atan $ 0.1) : [5.75, 5.80 .. 9.95 ]
                        ++ [10, 10.1  .. 29.9] ++ [30, 30.2 .. 45 ]
                        )
