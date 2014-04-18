@@ -8,6 +8,7 @@ import qualified Numeric    as N
 main = do
   args <- S.getArgs
   let actualLength = if length args > 0 then read (args !! 0) else 36
+  let fracDenom    = if length args > 1 then read (args !! 1) else  8
   let scales = [ -- use the front for multiplication, division, exponentiation
                -- Top front:
                scaleA           -- squares
@@ -55,7 +56,7 @@ main = do
 --             , scaleB
                ]
   let marks = concat
-              (map (\s -> distanceScaleToStr (scaleUp s actualLength 8)) scales)
+              (map (\s -> distanceScaleToStr (scaleUp s actualLength fracDenom)) scales)
   putStr (L.unlines marks)
 
 e        = exp 1
